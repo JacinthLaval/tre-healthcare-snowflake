@@ -1,0 +1,324 @@
+name: CIBMTR_TRANSPLANT_RESEARCH
+description: |
+  Stem cell transplant research data from the Center for International Blood and Marrow Transplant Research (CIBMTR).
+  
+  This semantic model covers three key research domains:
+  - **Haploidentical Transplant**: Outcomes for mismatched unrelated donor (MMUD) transplants comparing myeloablative vs reduced intensity conditioning
+  - **HLA-E Outcomes**: Impact of donor HLA-E status on transplant survival and GVHD
+  - **PBSC Collection**: Peripheral blood stem cell mobilization and collection metrics
+  
+  Key terminology:
+  - **HLA**: Human Leukocyte Antigen - proteins for immune self/non-self recognition
+  - **MMUD**: Mismatched Unrelated Donor - donor without full HLA match
+  - **PBSC**: Peripheral Blood Stem Cells - collected from blood via apheresis
+  - **GVHD**: Graft-versus-Host Disease - transplanted cells attack recipient
+  - **TRM**: Transplant-Related Mortality
+  - **DFS**: Disease-Free Survival
+  - **CD34+**: Stem cell marker used to measure graft quality
+
+tables:
+  - name: HAPLOIDENTICAL_TRANSPLANT
+    description: |
+      Haploidentical (mismatched) donor transplant outcomes study (N=1,325).
+      Compares myeloablative vs reduced intensity conditioning in T-cell replete haploidentical HCT.
+    base_table:
+      database: TRE_HEALTHCARE_DB
+      schema: OMOP_CDM
+      table: CIBMTR_HAPLOIDENTICAL_TRANSPLANT
+    dimensions:
+      - name: SEX
+        description: Patient sex (1=Male, 2=Female)
+        expr: SEX
+        data_type: NUMBER
+      - name: AGEGP
+        description: Patient age group
+        expr: AGEGP
+        data_type: NUMBER
+      - name: DISEASE
+        description: Primary disease category
+        expr: DISEASE
+        data_type: NUMBER
+      - name: DISTAT
+        description: Disease status at transplant
+        expr: DISTAT
+        data_type: NUMBER
+      - name: CONDINT
+        description: Conditioning intensity (1=Myeloablative, 2=Reduced Intensity)
+        expr: CONDINT
+        data_type: NUMBER
+      - name: GRAFTYPE
+        description: Graft type (stem cell source)
+        expr: GRAFTYPE
+        data_type: NUMBER
+      - name: YEARGP
+        description: Year group of transplant
+        expr: YEARGP
+        data_type: NUMBER
+      - name: CMV
+        description: CMV serostatus match
+        expr: CMV
+        data_type: NUMBER
+      - name: KPS
+        description: Karnofsky Performance Score
+        expr: KPS
+        data_type: NUMBER
+      - name: GVHDGP
+        description: GVHD prophylaxis group
+        expr: GVHDGP
+        data_type: NUMBER
+    facts:
+      - name: DEAD
+        description: Death indicator (1=Dead, 0=Alive)
+        expr: DEAD
+        data_type: NUMBER
+      - name: REL
+        description: Relapse indicator
+        expr: REL
+        data_type: NUMBER
+      - name: TRM
+        description: Transplant-related mortality indicator
+        expr: TRM
+        data_type: NUMBER
+      - name: DFS
+        description: Disease-free survival indicator
+        expr: DFS
+        data_type: NUMBER
+      - name: AGVHD24
+        description: Acute GVHD grade 2-4 indicator
+        expr: AGVHD24
+        data_type: NUMBER
+      - name: CGVHD
+        description: Chronic GVHD indicator
+        expr: CGVHD
+        data_type: NUMBER
+      - name: INTXSURV
+        description: Time to death or last follow-up (days)
+        expr: INTXSURV
+        data_type: NUMBER
+      - name: INTXREL
+        description: Time to relapse (days)
+        expr: INTXREL
+        data_type: NUMBER
+      - name: AGE
+        description: Patient age at transplant
+        expr: AGE
+        data_type: NUMBER
+
+  - name: HLA_E_OUTCOMES
+    description: |
+      HLA-E donor status and transplant outcomes study (N=1,840).
+      Examines association between donor HLA-E status and disease-free survival after non-T-cell depleted HSCT.
+    base_table:
+      database: TRE_HEALTHCARE_DB
+      schema: OMOP_CDM
+      table: CIBMTR_HLA_E_OUTCOMES
+    dimensions:
+      - name: SEX
+        description: Patient sex
+        expr: SEX
+        data_type: NUMBER
+      - name: DISEASE
+        description: Disease category
+        expr: DISEASE
+        data_type: NUMBER
+      - name: RACEGP
+        description: Race/ethnicity group
+        expr: RACEGP
+        data_type: NUMBER
+      - name: HLAEGRP
+        description: HLA-E genotype group (key variable)
+        expr: HLAEGRP
+        data_type: NUMBER
+      - name: GRAFTGP
+        description: Graft source group (bone marrow vs PBSC)
+        expr: GRAFTGP
+        data_type: NUMBER
+      - name: CMVMATCH
+        description: CMV match status
+        expr: CMVMATCH
+        data_type: NUMBER
+      - name: SEXMATCH
+        description: Donor-recipient sex match
+        expr: SEXMATCH
+        data_type: NUMBER
+      - name: PERMISS3
+        description: HLA permissive mismatch indicator
+        expr: PERMISS3
+        data_type: NUMBER
+      - name: CONDGRP
+        description: Conditioning regimen group
+        expr: CONDGRP
+        data_type: NUMBER
+      - name: GVHDGRP
+        description: GVHD outcome group
+        expr: GVHDGRP
+        data_type: NUMBER
+      - name: YEARGP
+        description: Year group of transplant
+        expr: YEARGP
+        data_type: NUMBER
+      - name: KPS
+        description: Karnofsky Performance Score
+        expr: KPS
+        data_type: NUMBER
+    facts:
+      - name: DEAD
+        description: Death indicator
+        expr: DEAD
+        data_type: NUMBER
+      - name: REL
+        description: Relapse indicator
+        expr: REL
+        data_type: NUMBER
+      - name: TRM
+        description: Transplant-related mortality
+        expr: TRM
+        data_type: NUMBER
+      - name: DFS
+        description: Disease-free survival indicator
+        expr: DFS
+        data_type: NUMBER
+      - name: AGE
+        description: Patient age at transplant
+        expr: AGE
+        data_type: NUMBER
+      - name: D_AGE1
+        description: Donor age
+        expr: D_AGE1
+        data_type: NUMBER
+      - name: INTXSURV
+        description: Time to death or follow-up (days)
+        expr: INTXSURV
+        data_type: NUMBER
+      - name: INTXREL
+        description: Time to relapse (days)
+        expr: INTXREL
+        data_type: NUMBER
+
+  - name: PBSC_COLLECTION
+    description: |
+      Peripheral Blood Stem Cell collection study (N=22,348).
+      Evaluates G-CSF dosing optimization for stem cell mobilization and collection efficiency.
+    base_table:
+      database: TRE_HEALTHCARE_DB
+      schema: OMOP_CDM
+      table: CIBMTR_PBSC_COLLECTION
+    dimensions:
+      - name: COLL_YR
+        description: Collection year
+        expr: COLL_YR
+        data_type: NUMBER
+      - name: TWODAYCOLL
+        description: Two-day collection indicator (1=Yes, 0=No)
+        expr: TWODAYCOLL
+        data_type: NUMBER
+      - name: DSEX
+        description: Donor sex
+        expr: DSEX
+        data_type: NUMBER
+      - name: DRACE
+        description: Donor race/ethnicity
+        expr: DRACE
+        data_type: NUMBER
+      - name: COLL_AGE_GP
+        description: Donor age group at collection
+        expr: COLL_AGE_GP
+        data_type: NUMBER
+      - name: D_BMI_GRP
+        description: Donor BMI group
+        expr: D_BMI_GRP
+        data_type: NUMBER
+      - name: BLD_VOL_TTL_GRP
+        description: Total blood volume processed group
+        expr: BLD_VOL_TTL_GRP
+        data_type: NUMBER
+    facts:
+      - name: P1_CD34
+        description: Day 1 CD34+ cell count (x10^6/kg)
+        expr: P1_CD34
+        data_type: NUMBER
+      - name: P2_CD34
+        description: Day 2 CD34+ cell count (x10^6/kg)
+        expr: P2_CD34
+        data_type: NUMBER
+      - name: TTL_CD34
+        description: Total CD34+ cells collected
+        expr: TTL_CD34
+        data_type: NUMBER
+      - name: TTL_MNC
+        description: Total mononuclear cells collected
+        expr: TTL_MNC
+        data_type: NUMBER
+      - name: GCSF_DSE1
+        description: G-CSF dose day 1 (mcg/kg)
+        expr: GCSF_DSE1
+        data_type: NUMBER
+      - name: GCSF_DSETTL
+        description: Total G-CSF dose
+        expr: GCSF_DSETTL
+        data_type: NUMBER
+      - name: D_WT
+        description: Donor weight (kg)
+        expr: D_WT
+        data_type: NUMBER
+      - name: WBC0
+        description: Baseline white blood cell count
+        expr: WBC0
+        data_type: NUMBER
+      - name: WBC5PRE
+        description: WBC count day 5 pre-collection
+        expr: WBC5PRE
+        data_type: NUMBER
+      - name: BLD_VOL_TTL
+        description: Total blood volume processed (liters)
+        expr: BLD_VOL_TTL
+        data_type: NUMBER
+      - name: RQSTGTCOLLECTEDDAY1
+        description: Requested target collected on day 1 indicator
+        expr: RQSTGTCOLLECTEDDAY1
+        data_type: NUMBER
+
+verified_queries:
+  - name: overall_survival_by_conditioning
+    question: What is the overall survival rate by conditioning intensity in haploidentical transplants?
+    sql: |
+      SELECT 
+        CASE CONDINT WHEN 1 THEN 'Myeloablative' WHEN 2 THEN 'Reduced Intensity' ELSE 'Unknown' END AS conditioning,
+        COUNT(*) AS total_patients,
+        SUM(CASE WHEN DEAD = 0 THEN 1 ELSE 0 END) AS alive,
+        ROUND(100.0 * SUM(CASE WHEN DEAD = 0 THEN 1 ELSE 0 END) / COUNT(*), 1) AS survival_pct
+      FROM TRE_HEALTHCARE_DB.OMOP_CDM.CIBMTR_HAPLOIDENTICAL_TRANSPLANT
+      GROUP BY CONDINT
+      ORDER BY conditioning
+    verified_by: System
+    verified_at: 1740528000
+
+  - name: gvhd_rates_by_hla_e
+    question: What are the GVHD rates by HLA-E genotype group?
+    sql: |
+      SELECT 
+        HLAEGRP AS hla_e_group,
+        COUNT(*) AS total_patients,
+        SUM(GVHDGRP) AS gvhd_cases,
+        ROUND(100.0 * SUM(GVHDGRP) / COUNT(*), 1) AS gvhd_rate_pct
+      FROM TRE_HEALTHCARE_DB.OMOP_CDM.CIBMTR_HLA_E_OUTCOMES
+      WHERE HLAEGRP IS NOT NULL
+      GROUP BY HLAEGRP
+      ORDER BY HLAEGRP
+    verified_by: System
+    verified_at: 1740528000
+
+  - name: cd34_yield_by_collection_days
+    question: Compare CD34+ cell yields between 1-day and 2-day PBSC collections
+    sql: |
+      SELECT 
+        CASE TWODAYCOLL WHEN 1 THEN '2-Day Collection' ELSE '1-Day Collection' END AS collection_type,
+        COUNT(*) AS collections,
+        ROUND(AVG(TTL_CD34), 2) AS avg_cd34_yield,
+        ROUND(AVG(GCSF_DSETTL), 2) AS avg_gcsf_dose
+      FROM TRE_HEALTHCARE_DB.OMOP_CDM.CIBMTR_PBSC_COLLECTION
+      WHERE TTL_CD34 IS NOT NULL
+      GROUP BY TWODAYCOLL
+      ORDER BY collection_type
+    verified_by: System
+    verified_at: 1740528000

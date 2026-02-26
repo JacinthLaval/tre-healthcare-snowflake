@@ -1,0 +1,875 @@
+name: GENOMIC_DATA
+description: |
+  This semantic model provides comprehensive genomic and clinical variant data from the 1000 Genomes Project integrated with NHS patient records. 
+  
+  **CRITICAL INSTRUCTIONS - DO NOT USE WEB SEARCH:**
+  - All required data is ALREADY AVAILABLE in the three tables (PANEL, CLINVAR, GENOME_DATA)
+  - DO NOT use WEB_SEARCH tool unless the user EXPLICITLY says "web search" or "search the web" in their question
+  - Gene information, variant significance, disease associations, and clinical data are ALL in the CLINVAR table
+  - For questions about genes, variants, pathogenicity, or diseases - query the CLINVAR table, do NOT search externally
+  - The CLINVAR table contains comprehensive annotations including gene symbols, clinical significance, disease IDs, guidelines, and phenotypes
+  - Use only the data and relationships defined in this semantic model to answer questions
+  
+  The model includes:
+  - PANEL: Patient demographics and family relationships from the 1000 Genomes Project
+  - CLINVAR: Clinical significance of genetic variants with gene symbols, pathogenicity, disease associations, and comprehensive medical annotations
+  - GENOME_DATA: Individual patient genotypes linked to NHS records via NHS_NUMBER
+  
+  Key relationships:
+  - GENOME_DATA links to CLINVAR via chromosome, position, and reference allele to get clinical significance
+  - GENOME_DATA links to PANEL via SAMPLE_ID to get patient demographics
+  - PANEL has self-referencing relationships via MOTHER_ID and FATHER_ID for family analysis
+  
+  All gene symbols, variant types, clinical significance terms, medical conditions, and disease information are defined in the CLINVAR table. Query this table first for any gene or disease information.
+tables:
+  - name: PANEL
+    synonyms: []
+    description: This view provides a curated selection of demographic information from the 1000 Genomes Project, a comprehensive dataset of genomic variation in global populations. It contains individual-level data, including sample ID, family relationships, gender, and population assignments, allowing researchers to analyze genetic diversity and relationships within and across populations.
+    base_table:
+      database: HEALTHCARE_DATABASE
+      schema: DEFAULT_SCHEMA
+      table: PANEL
+    dimensions:
+      - name: FAMILY_ID
+        description: Unique identifier for a family in the study.
+        expr: FAMILY_ID
+        data_type: VARCHAR(16777216)
+        sample_values:
+          - HG00096
+          - HG00178
+          - HG00355
+      - name: FATHER_ID
+        description: Unique identifier for the father of the individual in the panel.
+        expr: FATHER_ID
+        data_type: VARCHAR(16777216)
+        sample_values:
+          - '0'
+          - HG00436
+          - HG00403
+      - name: MOTHER_ID
+        description: Unique identifier for the mother of the individual in the panel.
+        expr: MOTHER_ID
+        data_type: VARCHAR(16777216)
+        sample_values:
+          - '0'
+          - HG00144
+          - HG00437
+      - name: SAMPLE_ID
+        description: Unique identifier for a biological sample in the study.
+        expr: SAMPLE_ID
+        data_type: VARCHAR(16777216)
+        sample_values:
+          - HG00096
+          - HG00178
+          - HG00355
+    primary_key:
+      columns:
+        - SAMPLE_ID
+  - name: CLINVAR
+    synonyms: []
+    description: This table stores information about clinically relevant genetic variants from the ClinVar database, which is a repository of reports of the relationships between human variations and phenotypes, with supporting evidence.
+    base_table:
+      database: HEALTHCARE_DATABASE
+      schema: DEFAULT_SCHEMA
+      table: CLINVAR
+    dimensions:
+      - name: ALT
+        description: Alternate allele in the variation.
+        expr: ALT
+        data_type: VARCHAR(16777216)
+        sample_values:
+          - T
+          - A
+          - C
+      - name: CHROM
+        description: Chromosome number on which the variant is located.
+        expr: CHROM
+        data_type: VARCHAR(2)
+        sample_values:
+          - X
+          - '18'
+          - '5'
+      - name: CHROMOSOMEACCESSION
+        description: The reference chromosome accession number from which the variant was identified, as defined by the National Center for Biotechnology Information (NCBI).
+        expr: CHROMOSOMEACCESSION
+        data_type: VARCHAR(16777216)
+        sample_values:
+          - NT_187693.1
+          - NC_000012.12
+          - NC_000015.10
+      - name: CLNDISB
+        description: Disease identifiers from various sources, including MONDO, MedGen, OMIM, and Orphanet, used to represent the clinical significance of a variant.
+        expr: CLNDISB
+        data_type: ARRAY
+        sample_values:
+          - |-
+            [
+              "MONDO:MONDO:0009338,MedGen:C1856128,OMIM:235550,Orphanet:79124",
+              "MeSH:D030342,MedGen:C0950123"
+            ]
+          - |-
+            [
+              "MONDO:MONDO:0009338,MedGen:C1856128,OMIM:235550,Orphanet:79124"
+            ]
+          - |-
+            [
+              "MedGen:C3661900"
+            ]
+      - name: CLNDN
+        description: Clinical significance of the variant, as provided by the submitter, indicating whether the variant is benign, likely benign, uncertain significance, likely pathogenic, or pathogenic.
+        expr: CLNDN
+        data_type: ARRAY
+        sample_values:
+          - |-
+            [
+              "not provided"
+            ]
+          - |-
+            [
+              "not specified"
+            ]
+          - |-
+            [
+              "not provided",
+              "not specified"
+            ]
+      - name: CLNREVSTAT
+        description: The clinical significance of the variant has been reviewed and classified by one or more submitters, with the classification status indicating the level of agreement and evidence provided.
+        expr: CLNREVSTAT
+        data_type: VARCHAR(16777216)
+        sample_values:
+          - criteria provided, single submitter
+          - criteria provided, conflicting classifications
+          - criteria provided, multiple submitters, no conflicts
+      - name: CLNSIG
+        description: Clinical significance of the variant, indicating the likelihood that the variant is associated with a disease or condition.
+        expr: CLNSIG
+        data_type: VARCHAR(16777216)
+        sample_values:
+          - Pathogenic/Likely pathogenic
+          - Uncertain significance
+          - Likely benign
+      - name: CYTOGENETIC
+        description: Cytogenetic location of the variant, describing the chromosomal region where the variant is located, using a combination of chromosome number, arm (p or q), and band number.
+        expr: CYTOGENETIC
+        data_type: VARCHAR(16777216)
+        sample_values:
+          - '-'
+          - 12p11.1
+          - 12p11.21
+      - name: FULL_ANNOTATION
+        description: This column, FULL_ANNOTATION, contains detailed information about genetic variants, including their clinical significance, gene symbol, chromosome location, and other relevant data, providing a comprehensive annotation of genetic variations.
+        expr: FULL_ANNOTATION
+        data_type: VARIANT
+        sample_values:
+          - |-
+            {
+              "alleleid": 1683374,
+              "alternateallele": "na",
+              "alternateallelevcf": "G",
+              "assembly": "GRCh38",
+              "chromosome": "X",
+              "chromosomeaccession": "NC_000023.11",
+              "clinicalsignificance": "Uncertain significance",
+              "clinsigsimple": 0,
+              "cytogenetic": "Xp21.1",
+              "geneid": 1756,
+              "genesymbol": "DMD",
+              "guidelines": "-",
+              "hgnc_id": "HGNC:2928",
+              "lastevaluated": "Nov 17, 2020",
+              "name": "NM_004006.3(DMD):c.3804G>C (p.Trp1268Cys)",
+              "nsv_esv_dbvar": "-",
+              "numbersubmitters": 1,
+              "oncogenicity": "-",
+              "oncogenicitylastevaluated": "-",
+              "origin": "germline",
+              "originsimple": "germline",
+              "otherids": "-",
+              "phenotypeids": "-",
+              "phenotypelist": "See cases",
+              "positionvcf": 32441297,
+              "rcvaccession": "RCV002252558",
+              "referenceallele": "na",
+              "referenceallelevcf": "C",
+              "reviewstatus": "criteria provided, single submitter",
+              "reviewstatusclinicalimpact": "-",
+              "reviewstatusoncogenicity": "-",
+              "rsid_dbsnp": 1569562573,
+              "somaticclinicalimpact": "-",
+              "somaticclinicalimpactlastevaluated": "-",
+              "start": 32441297,
+              "stop": 32441297,
+              "submittercategories": 2,
+              "testedingtr": "N",
+              "type": "single nucleotide variant",
+              "variationid": 1690966
+            }
+          - |-
+            {
+              "alleleid": 198580,
+              "alternateallele": "na",
+              "alternateallelevcf": "C",
+              "assembly": "GRCh38",
+              "chromosome": "X",
+              "chromosomeaccession": "NC_000023.11",
+              "clinicalsignificance": "Uncertain significance",
+              "clinsigsimple": 0,
+              "cytogenetic": "Xp21.1",
+              "geneid": 1756,
+              "genesymbol": "DMD",
+              "guidelines": "-",
+              "hgnc_id": "HGNC:2928",
+              "lastevaluated": "Nov 08, 2021",
+              "name": "NM_004006.3(DMD):c.3937A>G (p.Met1313Val)",
+              "nsv_esv_dbvar": "-",
+              "numbersubmitters": 5,
+              "oncogenicity": "-",
+              "oncogenicitylastevaluated": "-",
+              "origin": "germline",
+              "originsimple": "germline",
+              "otherids": "ClinGen:CA308391",
+              "phenotypeids": "MedGen:CN517202|MONDO:MONDO:0010311,MedGen:C0917713,OMIM:300376,Orphanet:98895;;Human Phenotype Ontology:HP:0001638,MONDO:MONDO:0004994,MedGen:C0878544,Orphanet:167848;MONDO:MONDO:0010679,MedGen:C0013264,OMIM:310200,Orphanet:98896|MONDO:MONDO:0010679,MedGen:C0013264,OMIM:310200,Orphanet:98896",
+              "phenotypelist": "not provided|Becker muscular dystrophy;Dystrophin deficiency;Cardiomyopathy;Duchenne muscular dystrophy|Duchenne muscular dystrophy",
+              "positionvcf": 32438375,
+              "rcvaccession": "RCV000183411|RCV001827986|RCV001852354",
+              "referenceallele": "na",
+              "referenceallelevcf": "T",
+              "reviewstatus": "criteria provided, multiple submitters, no conflicts",
+              "reviewstatusclinicalimpact": "-",
+              "reviewstatusoncogenicity": "-",
+              "rsid_dbsnp": 794729003,
+              "somaticclinicalimpact": "-",
+              "somaticclinicalimpactlastevaluated": "-",
+              "start": 32438375,
+              "stop": 32438375,
+              "submittercategories": 2,
+              "testedingtr": "N",
+              "type": "single nucleotide variant",
+              "variationid": 201748
+            }
+          - |-
+            {
+              "alleleid": 1086604,
+              "alternateallele": "na",
+              "alternateallelevcf": "A",
+              "assembly": "GRCh38",
+              "chromosome": "X",
+              "chromosomeaccession": "NC_000023.11",
+              "clinicalsignificance": "Likely benign",
+              "clinsigsimple": 0,
+              "cytogenetic": "Xp21.1",
+              "geneid": 1756,
+              "genesymbol": "DMD",
+              "guidelines": "-",
+              "hgnc_id": "HGNC:2928",
+              "lastevaluated": "Oct 18, 2022",
+              "name": "NM_004006.3(DMD):c.3999C>T (p.Gly1333=)",
+              "nsv_esv_dbvar": "-",
+              "numbersubmitters": 4,
+              "oncogenicity": "-",
+              "oncogenicitylastevaluated": "-",
+              "origin": "germline",
+              "originsimple": "germline",
+              "otherids": "-",
+              "phenotypeids": "MONDO:MONDO:0010679,MedGen:C0013264,OMIM:310200,Orphanet:98896|MedGen:C3661900|MedGen:CN230736",
+              "phenotypelist": "Duchenne muscular dystrophy|not provided|Cardiovascular phenotype",
+              "positionvcf": 32438313,
+              "rcvaccession": "RCV001400071|RCV001569380|RCV002377604",
+              "referenceallele": "na",
+              "referenceallelevcf": "G",
+              "reviewstatus": "criteria provided, multiple submitters, no conflicts",
+              "reviewstatusclinicalimpact": "-",
+              "reviewstatusoncogenicity": "-",
+              "rsid_dbsnp": 140759792,
+              "somaticclinicalimpact": "-",
+              "somaticclinicalimpactlastevaluated": "-",
+              "start": 32438313,
+              "stop": 32438313,
+              "submittercategories": 2,
+              "testedingtr": "N",
+              "type": "single nucleotide variant",
+              "variationid": 1083422
+            }
+      - name: GENESYMBOL
+        description: The gene symbol associated with the clinical variant.
+        expr: GENESYMBOL
+        data_type: VARCHAR(16777216)
+        sample_values:
+          - SP140L
+          - SP140
+          - DECR1
+      - name: GUIDELINES
+        description: This column represents the clinical guidelines used to interpret the clinical significance of a variant, with possible values indicating the year of the American College of Medical Genetics and Genomics (ACMG) guidelines used for interpretation, or a missing value if no guidelines were specified.
+        expr: GUIDELINES
+        data_type: VARCHAR(16777216)
+        sample_values:
+          - ACMG2013,ACMG2016,ACMG2021,ACMG2022
+          - ACMG2016,ACMG2021,ACMG2022
+          - '-'
+      - name: HGNC_ID
+        description: HGNC (HUGO Gene Nomenclature Committee) ID is a unique identifier for a human gene, providing a standardized way to reference and identify specific genes in the human genome.
+        expr: HGNC_ID
+        data_type: VARCHAR(16777216)
+        sample_values:
+          - HGNC:22420
+          - HGNC:24555
+          - HGNC:6782
+      - name: LASTEVALUATED
+        description: Date when the clinical significance of the variant was last evaluated.
+        expr: LASTEVALUATED
+        data_type: VARCHAR(16777216)
+        sample_values:
+          - Mar 29, 2022
+          - Jan 29, 2019
+          - Nov 01, 2021
+      - name: NAME
+        description: This column contains the names of specific genetic variants, including the gene symbol (ALPK2), the transcript identifier (NM_052947.4), and the description of the variant in HGVS (Human Genome Variation Society) format, which includes the nucleotide change (c.2512G>A, c.1817C>T, c.1973A>T) and the resulting amino acid change (p.Val838Ile, p.Thr606Ile, p.Gln658Leu).
+        expr: NAME
+        data_type: VARCHAR(16777216)
+        sample_values:
+          - NM_052947.4(ALPK2):c.2512G>A (p.Val838Ile)
+          - NM_052947.4(ALPK2):c.1817C>T (p.Thr606Ile)
+          - NM_052947.4(ALPK2):c.1973A>T (p.Gln658Leu)
+      - name: ORIGIN
+        description: The origin of the variant, indicating whether it was inherited, present in the germline (i.e., inherited from a parent), or of maternal origin.
+        expr: ORIGIN
+        data_type: VARCHAR(16777216)
+        sample_values:
+          - inherited
+          - germline
+          - germline;maternal
+      - name: ORIGINSIMPLE
+        description: The origin of the variant, indicating whether it is inherited (germline), occurs spontaneously in somatic cells (somatic), or the origin is unknown.
+        expr: ORIGINSIMPLE
+        data_type: VARCHAR(16777216)
+        sample_values:
+          - unknown
+          - somatic
+          - germline
+      - name: OTHERIDS
+        description: Other identifiers for the variant from external sources, such as ClinGen accession numbers.
+        expr: OTHERIDS
+        data_type: VARCHAR(16777216)
+        sample_values:
+          - ClinGen:CA012532
+          - '-'
+          - ClinGen:CA012382
+      - name: RCVACCESSION
+        description: Unique accession identifier for a ClinVar record.
+        expr: RCVACCESSION
+        data_type: ARRAY
+        sample_values:
+          - |-
+            [
+              "RCV002142963"
+            ]
+          - |-
+            [
+              "RCV000885029"
+            ]
+          - |-
+            [
+              "RCV002820885"
+            ]
+      - name: REF
+        description: Reference allele(s) observed in the population.
+        expr: REF
+        data_type: VARCHAR(16777216)
+        sample_values:
+          - ACGTCCAGGTGCTTGTCGTTC
+          - G
+          - GCCTAGAATTGT
+      - name: TESTEDINGTR
+        description: Whether the variant was tested in a transgenic organism.
+        expr: TESTEDINGTR
+        data_type: VARCHAR(16777216)
+        sample_values:
+          - 'N'
+          - 'Y'
+      - name: TYPE
+        description: The type of genetic variation, such as a single nucleotide change, a deletion of genetic material, or a duplication of genetic material.
+        expr: TYPE
+        data_type: VARCHAR(16777216)
+        sample_values:
+          - single nucleotide variant
+          - Deletion
+          - Duplication
+    facts:
+      - name: ALLELEID
+        description: Unique identifier for the allele.
+        expr: ALLELEID
+        data_type: NUMBER(38,0)
+        sample_values:
+          - '1845141'
+          - '1843021'
+          - '1847437'
+      - name: CLINSIGSIMPLE
+        description: Clinical significance of the variant, where 0 indicates a variant of uncertain significance and -1 indicates a variant with no known clinical significance.
+        expr: CLINSIGSIMPLE
+        data_type: NUMBER(38,0)
+        sample_values:
+          - '0'
+          - '-1'
+      - name: GENEID
+        description: The GENEID column represents a unique identifier for a gene, which is a unit of heredity that is passed from one generation to the next and is carried by all living organisms.
+        expr: GENEID
+        data_type: NUMBER(38,0)
+        sample_values:
+          - '375449'
+          - '4064'
+          - '140890'
+      - name: NUMBERSUBMITTERS
+        description: The number of submitters who have contributed to the clinical significance assertion for this variant.
+        expr: NUMBERSUBMITTERS
+        data_type: NUMBER(38,0)
+        sample_values:
+          - '2'
+          - '3'
+          - '4'
+      - name: POS
+        description: Position of the variant in the chromosome.
+        expr: POS
+        data_type: NUMBER(38,0)
+        sample_values:
+          - '202942162'
+          - '202741559'
+          - '202741548'
+      - name: RS
+        description: Reference SNP (rs) number, a unique identifier for a specific genetic variation.
+        expr: RS
+        data_type: NUMBER(38,0)
+        sample_values:
+          - '367898987'
+          - '542367782'
+          - '764798491'
+      - name: STARTPOS
+        description: The position of the variant in the reference genome, measured in base pairs from the start of the chromosome.
+        expr: STARTPOS
+        data_type: NUMBER(38,0)
+        sample_values:
+          - '66038429'
+          - '32441306'
+          - '43080551'
+      - name: STOPPOS
+        description: The position of the last nucleotide of the variant in the stop codon.
+        expr: STOPPOS
+        data_type: NUMBER(38,0)
+        sample_values:
+          - '66038429'
+          - '66048711'
+          - '66050855'
+      - name: SUBMITTERCATEGORIES
+        description: |-
+          The submitter-provided categories for the clinical significance of the variant, with values: 
+          1 = Benign
+          2 = Likely benign
+          3 = Uncertain significance
+        expr: SUBMITTERCATEGORIES
+        data_type: NUMBER(38,0)
+        sample_values:
+          - '1'
+          - '2'
+          - '3'
+      - name: VARIATIONID
+        description: Unique identifier for a specific variation in the ClinVar database.
+        expr: VARIATIONID
+        data_type: NUMBER(38,0)
+        sample_values:
+          - '2346773'
+          - '1431238'
+          - '1910810'
+    unique_keys:
+      - columns:
+          - CHROM
+          - REF
+          - POS
+  - name: GENOME_DATA_FILTERED
+    synonyms: []
+    description: This view provides access to genomic data from the 1000 Genomes Project filtered to only include samples that have been mapped to NHS patient records. Contains information on genetic variations including chromosome, position, reference and alternate alleles, quality scores, and filter status, as well as sample-specific data including sample ID, NHS number, allele values, and filename. Links genomic variants directly to patient records via NHS_NUMBER.
+    base_table:
+      database: HEALTHCARE_DATABASE
+      schema: DEFAULT_SCHEMA
+      table: GENOME_DATA_FILTERED
+    dimensions:
+      - name: ALLELE1
+        description: The first allele observed at a specific genetic locus.
+        expr: ALLELE1
+        data_type: VARCHAR(16777216)
+        sample_values:
+          - A
+          - GA
+          - C
+      - name: ALLELE2
+        description: The second allele observed in the genome data, representing a variant of the DNA sequence at a specific location, with possible values including a single nucleotide (G or T) or a deletion (GA).
+        expr: ALLELE2
+        data_type: VARCHAR(16777216)
+        sample_values:
+          - G
+          - T
+          - GA
+      - name: ALT
+        description: The type of nucleotide present in the alternate allele of a genetic variant.
+        expr: ALT
+        data_type: ARRAY
+        sample_values:
+          - |-
+            [
+              "C"
+            ]
+          - |-
+            [
+              "T"
+            ]
+          - |-
+            [
+              "G"
+            ]
+      - name: CHROM
+        description: Chromosome number where the gene is located.
+        expr: CHROM
+        data_type: VARCHAR(16777216)
+        sample_values:
+          - '8'
+          - '11'
+          - '14'
+      - name: FILENAME
+        description: The name of the VCF (Variant Call Format) file containing the genome data for a specific individual.
+        expr: FILENAME
+        data_type: VARCHAR(16777216)
+        sample_values:
+          - NA19431.hard-filtered.vcf.gz
+          - HG02851.hard-filtered.vcf.gz
+          - HG03720.hard-filtered.vcf.gz
+      - name: FILTER
+        description: This column indicates the quality filter status of a genomic variant, with possible values being "LowDepth" (insufficient read depth to make a reliable call), "PASS" (variant passes all quality filters), and "DRAGENHardQUAL" (variant fails a hard quality filter applied by the DRAGEN pipeline).
+        expr: FILTER
+        data_type: VARCHAR(16777216)
+        sample_values:
+          - LowDepth
+          - PASS
+          - DRAGENHardQUAL
+      - name: ID
+        description: A unique identifier for a genome in the database.
+        expr: ID
+        data_type: VARCHAR(16777216)
+        sample_values:
+          - .
+      - name: INFO
+        description: This column contains information about the genomic data, including allele counts, allele frequencies, total allele numbers, read depths, Fisher's exact test probabilities, fraction of informative reads, mapping qualities, variant quality scores, and strand bias scores.
+        expr: INFO
+        data_type: VARIANT
+        sample_values:
+          - |-
+            {
+              "AC": [
+                2
+              ],
+              "AF": [
+                1
+              ],
+              "AN": 2,
+              "DP": 20,
+              "FS": 0,
+              "FractionInformativeReads": 1,
+              "MQ": 250,
+              "QD": 5.36,
+              "SOR": 2.093
+            }
+          - |-
+            {
+              "AC": [
+                2
+              ],
+              "AF": [
+                1
+              ],
+              "AN": 2,
+              "DP": 50,
+              "FS": 0,
+              "FractionInformativeReads": 0.98,
+              "MQ": 250,
+              "QD": 3.89,
+              "SOR": 1.007
+            }
+          - |-
+            {
+              "AC": [
+                2
+              ],
+              "AF": [
+                1
+              ],
+              "AN": 2,
+              "DP": 34,
+              "FS": 0,
+              "FractionInformativeReads": 1,
+              "MQ": 250,
+              "QD": 4.39,
+              "SOR": 0.693
+            }
+      - name: REF
+        description: Reference allele(s) for the genomic variant.
+        expr: REF
+        data_type: VARCHAR(16777216)
+        sample_values:
+          - G
+          - A
+          - GA
+      - name: SAMPLE_ID
+        description: Unique identifier for each genome sample.
+        expr: SAMPLE_ID
+        data_type: VARCHAR(16777216)
+        sample_values:
+          - HG02234
+          - HG02238
+          - HG02233
+      - name: NHS_NUMBER
+        description: Unique identifier for a patient in the National Health Service (NHS) system. Links this genomic sample to a specific NHS patient record, enabling integration of genetic data with patient demographics and health conditions.
+        expr: NHS_NUMBER
+        data_type: VARCHAR(16777216)
+        sample_values:
+          - '0034881683'
+          - '0036788498'
+          - '0036915241'
+      - name: VALS
+        description: This column, named VALS, appears to contain variant allele information from a genomics dataset, including allele depth, allele frequency, genotype quality, and other metrics related to the detection and characterization of genetic variants.
+        expr: VALS
+        data_type: VARIANT
+        sample_values:
+          - |-
+            {
+              "AD": [
+                6,
+                11
+              ],
+              "AF": [
+                0.647
+              ],
+              "DP": 17,
+              "F1R2": [
+                5,
+                6
+              ],
+              "F2R1": [
+                1,
+                5
+              ],
+              "GP": [
+                5.000000000000000e+01,
+                1.705900000000000e-04,
+                4.533400000000000e+01
+              ],
+              "GQ": 44,
+              "GT": "0/1",
+              "MB": [
+                2,
+                4,
+                8,
+                3
+              ],
+              "PL": [
+                54,
+                0,
+                42
+              ],
+              "PRI": [
+                0,
+                4,
+                7.01
+              ],
+              "SB": [
+                3,
+                3,
+                7,
+                4
+              ]
+            }
+          - |-
+            {
+              "AD": [
+                21,
+                17
+              ],
+              "AF": [
+                0.447
+              ],
+              "DP": 38,
+              "F1R2": [
+                8,
+                10
+              ],
+              "F2R1": [
+                13,
+                7
+              ],
+              "GP": [
+                4.908400000000000e+01,
+                7.532900000000000e-05,
+                5.300000000000000e+01
+              ],
+              "GQ": 48,
+              "GT": "0/1",
+              "MB": [
+                13,
+                8,
+                6,
+                11
+              ],
+              "PL": [
+                84,
+                0,
+                50
+              ],
+              "PRI": [
+                0,
+                34.77,
+                37.77
+              ],
+              "SB": [
+                4,
+                17,
+                9,
+                8
+              ]
+            }
+          - |-
+            {
+              "AD": [
+                19,
+                12
+              ],
+              "AF": [
+                0.387
+              ],
+              "DP": 31,
+              "F1R2": [
+                9,
+                7
+              ],
+              "F2R1": [
+                10,
+                5
+              ],
+              "GP": [
+                4.653800000000000e+01,
+                1.180400000000000e-04,
+                5.300000000000000e+01
+              ],
+              "GQ": 46,
+              "GT": "0/1",
+              "MB": [
+                7,
+                12,
+                5,
+                7
+              ],
+              "PL": [
+                81,
+                0,
+                50
+              ],
+              "PRI": [
+                0,
+                34.77,
+                37.77
+              ],
+              "SB": [
+                11,
+                8,
+                10,
+                2
+              ]
+            }
+    facts:
+      - name: POS
+        description: Position of the variant in the genome, measured in base pairs from the start of the chromosome.
+        expr: POS
+        data_type: NUMBER(38,0)
+        sample_values:
+          - '20026171'
+          - '20020962'
+          - '20021061'
+      - name: QUAL
+        description: The QUAL column represents the Phred quality score, a measure of the accuracy of the base call in the genome data, with higher values indicating higher confidence in the accuracy of the base call.
+        expr: QUAL
+        data_type: NUMBER(38,0)
+        sample_values:
+          - '50'
+          - '143'
+          - '106'
+    primary_key:
+      columns: []
+relationships:
+  - name: clinvar_to_genomic_data
+    left_table: GENOME_DATA_FILTERED
+    relationship_columns:
+      - left_column: CHROM
+        right_column: CHROM
+      - left_column: REF
+        right_column: REF
+      - left_column: POS
+        right_column: POS
+    right_table: CLINVAR
+  - name: panel_to_genome_Data
+    left_table: GENOME_DATA_FILTERED
+    relationship_columns:
+      - left_column: SAMPLE_ID
+        right_column: SAMPLE_ID
+    right_table: PANEL
+  - name: panel_to_father
+    left_table: PANEL
+    relationship_columns:
+      - left_column: FATHER_ID
+        right_column: SAMPLE_ID
+    right_table: PANEL
+    relationship_type: many_to_one
+  - name: panel_to_mother
+    left_table: PANEL
+    relationship_columns:
+      - left_column: MOTHER_ID
+        right_column: SAMPLE_ID
+    right_table: PANEL
+    relationship_type: many_to_one
+verified_queries:
+  - name: What are the most common gene symbols associated with variants that have clinical significance of 'Likely benign'?
+    question: What are the most common gene symbols associated with variants that have clinical significance of 'Likely benign'?
+    sql: |-
+      SELECT
+        genesymbol,
+        COUNT(*) AS variant_count
+      FROM
+        clinvar
+      WHERE
+        clnsig = 'Likely benign'
+        AND NOT genesymbol IS NULL
+      GROUP BY
+        genesymbol
+      ORDER BY
+        variant_count DESC NULLS LAST
+    use_as_onboarding_question: false
+    verified_by: Advisor USER
+    verified_at: 1760650295
+  - name: can you give me the gene symbols that are likely to be pathagenic?
+    question: can you give me the gene symbols that are likely to be pathagenic?
+    sql: |-
+      SELECT
+        genesymbol,
+        COUNT(*) AS variant_count
+      FROM
+        clinvar
+      WHERE
+        (
+          clnsig = 'Likely pathogenic'
+          OR clnsig = 'Pathogenic'
+          OR clnsig = 'Pathogenic/Likely pathogenic'
+        )
+        AND NOT genesymbol IS NULL
+      GROUP BY
+        genesymbol
+      ORDER BY
+        variant_count DESC NULLS LAST
+    use_as_onboarding_question: false
+    verified_by: Advisor USER
+    verified_at: 1760650376
+
