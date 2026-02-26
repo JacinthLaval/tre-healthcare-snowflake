@@ -112,3 +112,28 @@ Analysis results with:
 - GVHD risk stratification
 - Donor selection recommendations
 - Population-level statistics for equity analysis
+
+## PubMed Search Criteria
+
+Use these search strings to find CIBMTR-related research in PubMed.
+
+### Option 1: General CIBMTR Search (Broad)
+Captures articles where CIBMTR is mentioned in title, abstract, author, or affiliation.
+
+```
+(CIBMTR[TW] OR "Center for International Blood and Marrow Transplant Research"[TW]) AND "last 5 years"[DP]
+```
+
+### Option 2: Targeted Clinical Trials Search
+Filters for clinical trials or comparative studies involving CIBMTR.
+
+```
+(CIBMTR[TW] OR "Center for International Blood and Marrow Transplant Research"[TW]) AND (Clinical Trial[PT] OR "Comparative Study"[PT]) AND "last 5 years"[DP]
+```
+
+### Option 3: Funding/Grant Search (Highly Specific)
+CIBMTR research is primarily supported by NCI and other agencies. Searching by core grant numbers finds official registry-supported studies.
+
+```
+(U24CA076518[GR] OR 75R60222C00011[GR] OR CIBMTR[AD]) AND "last 2 years"[DP]
+```
