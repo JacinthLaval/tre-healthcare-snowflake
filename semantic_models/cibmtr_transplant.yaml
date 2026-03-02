@@ -2,10 +2,11 @@ name: CIBMTR_TRANSPLANT_RESEARCH
 description: |
   Stem cell transplant research data from the Center for International Blood and Marrow Transplant Research (CIBMTR).
   
-  This semantic model covers three key research domains:
-  - **Haploidentical Transplant**: Outcomes for mismatched unrelated donor (MMUD) transplants comparing myeloablative vs reduced intensity conditioning
-  - **HLA-E Outcomes**: Impact of donor HLA-E status on transplant survival and GVHD
-  - **PBSC Collection**: Peripheral blood stem cell mobilization and collection metrics
+  This semantic model covers 13 research datasets spanning:
+  - **Transplant Outcomes**: Survival, GVHD, relapse, and mortality analysis
+  - **Disease-Specific Studies**: ALL, CML, NHL, Sickle Cell, Severe Aplastic Anemia
+  - **Treatment Optimization**: Conditioning regimens, TBI dosing, GCSF optimization
+  - **Complications**: TMA, infections, secondary malignancies
   
   Key terminology:
   - **HLA**: Human Leukocyte Antigen - proteins for immune self/non-self recognition
@@ -15,6 +16,8 @@ description: |
   - **TRM**: Transplant-Related Mortality
   - **DFS**: Disease-Free Survival
   - **CD34+**: Stem cell marker used to measure graft quality
+  - **TBI**: Total Body Irradiation
+  - **TMA**: Transplant-Associated Thrombotic Microangiopathy
 
 tables:
   - name: HAPLOIDENTICAL_TRANSPLANT
@@ -140,10 +143,6 @@ tables:
       - name: SEXMATCH
         description: Donor-recipient sex match
         expr: SEXMATCH
-        data_type: NUMBER
-      - name: PERMISS3
-        description: HLA permissive mismatch indicator
-        expr: PERMISS3
         data_type: NUMBER
       - name: CONDGRP
         description: Conditioning regimen group
@@ -273,9 +272,655 @@ tables:
         description: Total blood volume processed (liters)
         expr: BLD_VOL_TTL
         data_type: NUMBER
-      - name: RQSTGTCOLLECTEDDAY1
-        description: Requested target collected on day 1 indicator
-        expr: RQSTGTCOLLECTEDDAY1
+
+  - name: TMA_OUTCOMES
+    description: |
+      Transplant-Associated Thrombotic Microangiopathy (TMA) study (N=23,090).
+      Largest dataset - evaluates risk factors and outcomes of TMA post-transplant.
+    base_table:
+      database: TRE_HEALTHCARE_DB
+      schema: OMOP_CDM
+      table: CIBMTR_TMA_OUTCOMES
+    dimensions:
+      - name: SEX
+        description: Patient sex
+        expr: SEX
+        data_type: NUMBER
+      - name: DISEASEGP
+        description: Disease group
+        expr: DISEASEGP
+        data_type: NUMBER
+      - name: GRAFTGP
+        description: Graft source group
+        expr: GRAFTGP
+        data_type: NUMBER
+      - name: RACEGP
+        description: Race group
+        expr: RACEGP
+        data_type: NUMBER
+      - name: CONDGP
+        description: Conditioning group
+        expr: CONDGP
+        data_type: NUMBER
+      - name: DNRTYPE
+        description: Donor type
+        expr: DNRTYPE
+        data_type: NUMBER
+      - name: YEARTX
+        description: Year of transplant
+        expr: YEARTX
+        data_type: NUMBER
+    facts:
+      - name: DEAD
+        description: Death indicator
+        expr: DEAD
+        data_type: NUMBER
+      - name: INTXSURV
+        description: Time to death/follow-up (days)
+        expr: INTXSURV
+        data_type: NUMBER
+      - name: TMA_EVENT
+        description: TMA event indicator
+        expr: TMA_EVENT
+        data_type: NUMBER
+      - name: INTXTMA
+        description: Time to TMA (days)
+        expr: INTXTMA
+        data_type: NUMBER
+      - name: RENFAIL
+        description: Renal failure indicator
+        expr: RENFAIL
+        data_type: NUMBER
+      - name: AGVHD24
+        description: Acute GVHD grade 2-4
+        expr: AGVHD24
+        data_type: NUMBER
+      - name: AGVHD34
+        description: Acute GVHD grade 3-4
+        expr: AGVHD34
+        data_type: NUMBER
+      - name: AGE
+        description: Patient age
+        expr: AGE
+        data_type: NUMBER
+
+  - name: ALL_CYTOGENETICS
+    description: |
+      Acute Lymphoblastic Leukemia (ALL) cytogenetics and outcomes study (N=1,408).
+      Evaluates impact of cytogenetic abnormalities on transplant outcomes.
+    base_table:
+      database: TRE_HEALTHCARE_DB
+      schema: OMOP_CDM
+      table: CIBMTR_ALL_CYTOGENETICS
+    dimensions:
+      - name: SEX
+        description: Patient sex
+        expr: SEX
+        data_type: NUMBER
+      - name: AGEGPB
+        description: Age group
+        expr: AGEGPB
+        data_type: NUMBER
+      - name: KPS
+        description: Karnofsky Performance Score
+        expr: KPS
+        data_type: NUMBER
+      - name: SUBGRP
+        description: Disease subgroup
+        expr: SUBGRP
+        data_type: NUMBER
+      - name: GRAFTYPE
+        description: Graft type
+        expr: GRAFTYPE
+        data_type: NUMBER
+      - name: YEARGP
+        description: Year group
+        expr: YEARGP
+        data_type: NUMBER
+    facts:
+      - name: DEAD
+        description: Death indicator
+        expr: DEAD
+        data_type: NUMBER
+      - name: REL
+        description: Relapse indicator
+        expr: REL
+        data_type: NUMBER
+      - name: TRM
+        description: Transplant-related mortality
+        expr: TRM
+        data_type: NUMBER
+      - name: DFS
+        description: Disease-free survival
+        expr: DFS
+        data_type: NUMBER
+      - name: INTXSURV
+        description: Time to death/follow-up (days)
+        expr: INTXSURV
+        data_type: NUMBER
+      - name: INTXREL
+        description: Time to relapse (days)
+        expr: INTXREL
+        data_type: NUMBER
+
+  - name: TBI_DOSES
+    description: |
+      Total Body Irradiation (TBI) dosing study (N=2,533).
+      Evaluates impact of TBI dose fractionation on outcomes and toxicity.
+    base_table:
+      database: TRE_HEALTHCARE_DB
+      schema: OMOP_CDM
+      table: CIBMTR_TBI_DOSES
+    dimensions:
+      - name: SEX
+        description: Patient sex
+        expr: SEX
+        data_type: NUMBER
+      - name: DISEASE
+        description: Disease category
+        expr: DISEASE
+        data_type: NUMBER
+      - name: TBIFX
+        description: TBI fractionation scheme
+        expr: TBIFX
+        data_type: NUMBER
+      - name: GRAFTYPE
+        description: Graft type
+        expr: GRAFTYPE
+        data_type: NUMBER
+      - name: YRGP
+        description: Year group
+        expr: YRGP
+        data_type: NUMBER
+      - name: KPS
+        description: Karnofsky Performance Score
+        expr: KPS
+        data_type: NUMBER
+    facts:
+      - name: DEAD
+        description: Death indicator
+        expr: DEAD
+        data_type: NUMBER
+      - name: REL
+        description: Relapse indicator
+        expr: REL
+        data_type: NUMBER
+      - name: TRM
+        description: Transplant-related mortality
+        expr: TRM
+        data_type: NUMBER
+      - name: DFS
+        description: Disease-free survival
+        expr: DFS
+        data_type: NUMBER
+      - name: INTXSURV
+        description: Time to death/follow-up (days)
+        expr: INTXSURV
+        data_type: NUMBER
+      - name: AGE
+        description: Patient age
+        expr: AGE
+        data_type: NUMBER
+      - name: TBIDOSFX
+        description: TBI dose per fraction
+        expr: TBIDOSFX
+        data_type: NUMBER
+      - name: AGVHD24
+        description: Acute GVHD grade 2-4
+        expr: AGVHD24
+        data_type: NUMBER
+      - name: CGVHD
+        description: Chronic GVHD indicator
+        expr: CGVHD
+        data_type: NUMBER
+
+  - name: SICKLE_CELL_HCT
+    description: |
+      Sickle Cell Disease HCT study (N=847).
+      Outcomes of hematopoietic cell transplant for sickle cell disease.
+    base_table:
+      database: TRE_HEALTHCARE_DB
+      schema: OMOP_CDM
+      table: CIBMTR_SICKLE_CELL_HCT
+    dimensions:
+      - name: SEX
+        description: Patient sex
+        expr: SEX
+        data_type: NUMBER
+      - name: AGEGP
+        description: Age group
+        expr: AGEGP
+        data_type: NUMBER
+      - name: GENOTYPE
+        description: Sickle cell genotype
+        expr: GENOTYPE
+        data_type: NUMBER
+      - name: DONORGP
+        description: Donor group
+        expr: DONORGP
+        data_type: NUMBER
+      - name: GRAFTYPE
+        description: Graft type
+        expr: GRAFTYPE
+        data_type: NUMBER
+      - name: CONDINT
+        description: Conditioning intensity
+        expr: CONDINT
+        data_type: NUMBER
+      - name: YEARGP
+        description: Year group
+        expr: YEARGP
+        data_type: NUMBER
+      - name: KPS
+        description: Karnofsky Performance Score
+        expr: KPS
+        data_type: NUMBER
+    facts:
+      - name: DEAD
+        description: Death indicator
+        expr: DEAD
+        data_type: NUMBER
+      - name: INTXSURV
+        description: Time to death/follow-up (days)
+        expr: INTXSURV
+        data_type: NUMBER
+      - name: CGVHD
+        description: Chronic GVHD
+        expr: CGVHD
+        data_type: NUMBER
+      - name: AGVHD24
+        description: Acute GVHD grade 2-4
+        expr: AGVHD24
+        data_type: NUMBER
+      - name: GF
+        description: Graft failure
+        expr: GF
+        data_type: NUMBER
+      - name: EFS
+        description: Event-free survival
+        expr: EFS
+        data_type: NUMBER
+      - name: AGE
+        description: Patient age
+        expr: AGE
+        data_type: NUMBER
+
+  - name: SAA_CONDITIONING
+    description: |
+      Severe Aplastic Anemia (SAA) conditioning study (N=1,364).
+      Compares conditioning regimens for HCT in severe aplastic anemia.
+    base_table:
+      database: TRE_HEALTHCARE_DB
+      schema: OMOP_CDM
+      table: CIBMTR_SAA_CONDITIONING
+    dimensions:
+      - name: DONORGP
+        description: Donor group
+        expr: DONORGP
+        data_type: NUMBER
+      - name: SEX
+        description: Patient sex
+        expr: SEX
+        data_type: NUMBER
+      - name: AGEGP
+        description: Age group
+        expr: AGEGP
+        data_type: NUMBER
+      - name: KPS
+        description: Karnofsky Performance Score
+        expr: KPS
+        data_type: NUMBER
+      - name: MATCH
+        description: HLA match status
+        expr: MATCH
+        data_type: NUMBER
+      - name: YEARGP
+        description: Year group
+        expr: YEARGP
+        data_type: NUMBER
+      - name: GVHDGP
+        description: GVHD prophylaxis group
+        expr: GVHDGP
+        data_type: NUMBER
+    facts:
+      - name: DEAD
+        description: Death indicator
+        expr: DEAD
+        data_type: NUMBER
+      - name: INTXSURV
+        description: Time to death/follow-up (days)
+        expr: INTXSURV
+        data_type: NUMBER
+      - name: AGVHD24
+        description: Acute GVHD grade 2-4
+        expr: AGVHD24
+        data_type: NUMBER
+      - name: CGVHD
+        description: Chronic GVHD
+        expr: CGVHD
+        data_type: NUMBER
+      - name: ANC
+        description: Neutrophil engraftment
+        expr: ANC
+        data_type: NUMBER
+      - name: GF
+        description: Graft failure
+        expr: GF
+        data_type: NUMBER
+      - name: AGE
+        description: Patient age
+        expr: AGE
+        data_type: NUMBER
+
+  - name: BACTERIAL_INFECTIONS
+    description: |
+      Post-transplant bacterial infections study (N=1,673).
+      Evaluates risk factors for bacterial infections in the first 100 days post-transplant.
+    base_table:
+      database: TRE_HEALTHCARE_DB
+      schema: OMOP_CDM
+      table: CIBMTR_BACTERIAL_INFECTIONS
+    dimensions:
+      - name: SEX
+        description: Patient sex
+        expr: SEX
+        data_type: NUMBER
+      - name: AGEGP
+        description: Age group
+        expr: AGEGP
+        data_type: NUMBER
+      - name: GRAFTYPE
+        description: Graft type
+        expr: GRAFTYPE
+        data_type: NUMBER
+      - name: CONDINT
+        description: Conditioning intensity
+        expr: CONDINT
+        data_type: NUMBER
+      - name: DONORGP
+        description: Donor group
+        expr: DONORGP
+        data_type: NUMBER
+      - name: YEARGP
+        description: Year group
+        expr: YEARGP
+        data_type: NUMBER
+      - name: KPS
+        description: Karnofsky Performance Score
+        expr: KPS
+        data_type: NUMBER
+    facts:
+      - name: DEAD
+        description: Death indicator
+        expr: DEAD
+        data_type: NUMBER
+      - name: INTXSURV
+        description: Time to death/follow-up (days)
+        expr: INTXSURV
+        data_type: NUMBER
+      - name: BAC100GP
+        description: Bacterial infection in first 100 days
+        expr: BAC100GP
+        data_type: NUMBER
+      - name: VIRAL100GP
+        description: Viral infection in first 100 days
+        expr: VIRAL100GP
+        data_type: NUMBER
+      - name: FUNGAL100GP
+        description: Fungal infection in first 100 days
+        expr: FUNGAL100GP
+        data_type: NUMBER
+      - name: AGE
+        description: Patient age
+        expr: AGE
+        data_type: NUMBER
+
+  - name: CML_TKI_MAINTENANCE
+    description: |
+      CML TKI maintenance therapy study (N=374).
+      Evaluates tyrosine kinase inhibitor maintenance post-transplant for CML.
+    base_table:
+      database: TRE_HEALTHCARE_DB
+      schema: OMOP_CDM
+      table: CIBMTR_CML_TKI_MAINTENANCE
+    dimensions:
+      - name: SEX
+        description: Patient sex
+        expr: SEX
+        data_type: NUMBER
+      - name: AGEGP
+        description: Age group
+        expr: AGEGP
+        data_type: NUMBER
+      - name: DONORGP
+        description: Donor group
+        expr: DONORGP
+        data_type: NUMBER
+      - name: CONDINT
+        description: Conditioning intensity
+        expr: CONDINT
+        data_type: NUMBER
+      - name: YEARTXGP
+        description: Year of transplant group
+        expr: YEARTXGP
+        data_type: NUMBER
+    facts:
+      - name: DEAD
+        description: Death indicator
+        expr: DEAD
+        data_type: NUMBER
+      - name: REL
+        description: Relapse indicator
+        expr: REL
+        data_type: NUMBER
+      - name: TRM
+        description: Transplant-related mortality
+        expr: TRM
+        data_type: NUMBER
+      - name: DFS
+        description: Disease-free survival
+        expr: DFS
+        data_type: NUMBER
+      - name: CGVHD
+        description: Chronic GVHD
+        expr: CGVHD
+        data_type: NUMBER
+      - name: AGE
+        description: Patient age
+        expr: AGE
+        data_type: NUMBER
+
+  - name: PEDIATRIC_NEOPLASMS
+    description: |
+      Pediatric secondary malignancies study (N=5,219).
+      Evaluates risk of secondary neoplasms in pediatric transplant recipients.
+    base_table:
+      database: TRE_HEALTHCARE_DB
+      schema: OMOP_CDM
+      table: CIBMTR_PEDIATRIC_NEOPLASMS
+    dimensions:
+      - name: SEX
+        description: Patient sex
+        expr: SEX
+        data_type: NUMBER
+      - name: DISGP2
+        description: Disease group
+        expr: DISGP2
+        data_type: NUMBER
+      - name: GRAFTYPE
+        description: Graft type
+        expr: GRAFTYPE
+        data_type: NUMBER
+      - name: CONDINT
+        description: Conditioning intensity
+        expr: CONDINT
+        data_type: NUMBER
+      - name: YEARGP
+        description: Year group
+        expr: YEARGP
+        data_type: NUMBER
+      - name: REGION
+        description: Geographic region
+        expr: REGION
+        data_type: NUMBER
+    facts:
+      - name: DEAD
+        description: Death indicator
+        expr: DEAD
+        data_type: NUMBER
+      - name: INTXSURV
+        description: Time to death/follow-up (days)
+        expr: INTXSURV
+        data_type: NUMBER
+      - name: NEWMALIG
+        description: New malignancy indicator
+        expr: NEWMALIG
+        data_type: NUMBER
+      - name: NEWMINT
+        description: Time to new malignancy (days)
+        expr: NEWMINT
+        data_type: NUMBER
+      - name: CGVHD
+        description: Chronic GVHD
+        expr: CGVHD
+        data_type: NUMBER
+      - name: AGE
+        description: Patient age
+        expr: AGE
+        data_type: NUMBER
+      - name: TBIDOSE
+        description: TBI dose
+        expr: TBIDOSE
+        data_type: NUMBER
+
+  - name: LOST_FOLLOWUP
+    description: |
+      Lost to follow-up analysis (N=21,991).
+      Evaluates factors associated with loss to follow-up after transplant.
+    base_table:
+      database: TRE_HEALTHCARE_DB
+      schema: OMOP_CDM
+      table: CIBMTR_LOST_FOLLOWUP
+    dimensions:
+      - name: TXTYPE
+        description: Transplant type
+        expr: TXTYPE
+        data_type: NUMBER
+      - name: DISEASE
+        description: Disease category
+        expr: DISEASE
+        data_type: NUMBER
+      - name: AGEGP
+        description: Age group
+        expr: AGEGP
+        data_type: NUMBER
+      - name: RACEGP
+        description: Race group
+        expr: RACEGP
+        data_type: NUMBER
+      - name: KPS
+        description: Karnofsky Performance Score
+        expr: KPS
+        data_type: NUMBER
+      - name: YEARTX
+        description: Year of transplant
+        expr: YEARTX
+        data_type: NUMBER
+    facts:
+      - name: DEAD
+        description: Death indicator
+        expr: DEAD
+        data_type: NUMBER
+      - name: INTXSURV
+        description: Time to death/follow-up (days)
+        expr: INTXSURV
+        data_type: NUMBER
+      - name: LTFU
+        description: Lost to follow-up indicator
+        expr: LTFU
+        data_type: NUMBER
+      - name: AGVHD24
+        description: Acute GVHD grade 2-4
+        expr: AGVHD24
+        data_type: NUMBER
+      - name: CGVHD
+        description: Chronic GVHD
+        expr: CGVHD
+        data_type: NUMBER
+      - name: AGE
+        description: Patient age
+        expr: AGE
+        data_type: NUMBER
+
+  - name: ALTERNATIVE_DONOR_HCT
+    description: |
+      Alternative donor HCT outcomes study (N=2,116).
+      Compares outcomes across different alternative donor types including haploidentical, cord blood, and mismatched unrelated donors.
+    base_table:
+      database: TRE_HEALTHCARE_DB
+      schema: OMOP_CDM
+      table: CIBMTR_ALTERNATIVE_DONOR_HCT
+    dimensions:
+      - name: DONORREGGP
+        description: Donor registry group
+        expr: DONORREGGP
+        data_type: NUMBER
+      - name: AGEGP
+        description: Patient age group
+        expr: AGEGP
+        data_type: NUMBER
+      - name: SEX
+        description: Patient sex
+        expr: SEX
+        data_type: NUMBER
+      - name: DISEASE
+        description: Disease category
+        expr: DISEASE
+        data_type: NUMBER
+      - name: DRI
+        description: Disease Risk Index
+        expr: DRI
+        data_type: NUMBER
+      - name: ETHRACEGP
+        description: Ethnicity/race group
+        expr: ETHRACEGP
+        data_type: NUMBER
+      - name: YEARTXADULTGP
+        description: Year of transplant group (adult)
+        expr: YEARTXADULTGP
+        data_type: NUMBER
+    facts:
+      - name: DEAD
+        description: Death indicator
+        expr: DEAD
+        data_type: NUMBER
+      - name: INTXSURV
+        description: Time to death or follow-up (days)
+        expr: INTXSURV
+        data_type: NUMBER
+      - name: AGVHD34
+        description: Acute GVHD grade 3-4 indicator
+        expr: AGVHD34
+        data_type: NUMBER
+      - name: CGVHD
+        description: Chronic GVHD indicator
+        expr: CGVHD
+        data_type: NUMBER
+      - name: REL
+        description: Relapse indicator
+        expr: REL
+        data_type: NUMBER
+      - name: TRM
+        description: Transplant-related mortality
+        expr: TRM
+        data_type: NUMBER
+      - name: DFS
+        description: Disease-free survival
+        expr: DFS
+        data_type: NUMBER
+      - name: AGE
+        description: Patient age
+        expr: AGE
         data_type: NUMBER
 
 verified_queries:
@@ -320,5 +965,51 @@ verified_queries:
       WHERE TTL_CD34 IS NOT NULL
       GROUP BY TWODAYCOLL
       ORDER BY collection_type
+    verified_by: System
+    verified_at: 1740528000
+
+  - name: tma_incidence_by_donor_type
+    question: What is the TMA incidence rate by donor type?
+    sql: |
+      SELECT 
+        DNRTYPE AS donor_type,
+        COUNT(*) AS total_patients,
+        SUM(TMA_EVENT) AS tma_cases,
+        ROUND(100.0 * SUM(TMA_EVENT) / COUNT(*), 1) AS tma_rate_pct
+      FROM TRE_HEALTHCARE_DB.OMOP_CDM.CIBMTR_TMA_OUTCOMES
+      WHERE DNRTYPE IS NOT NULL
+      GROUP BY DNRTYPE
+      ORDER BY tma_rate_pct DESC
+    verified_by: System
+    verified_at: 1740528000
+
+  - name: sickle_cell_survival_by_donor
+    question: What are survival outcomes for sickle cell transplants by donor type?
+    sql: |
+      SELECT 
+        DONORGP AS donor_group,
+        COUNT(*) AS total_patients,
+        SUM(CASE WHEN DEAD = 0 THEN 1 ELSE 0 END) AS alive,
+        ROUND(100.0 * SUM(CASE WHEN DEAD = 0 THEN 1 ELSE 0 END) / COUNT(*), 1) AS survival_pct,
+        ROUND(AVG(INTXSURV), 0) AS avg_followup_days
+      FROM TRE_HEALTHCARE_DB.OMOP_CDM.CIBMTR_SICKLE_CELL_HCT
+      GROUP BY DONORGP
+      ORDER BY survival_pct DESC
+    verified_by: System
+    verified_at: 1740528000
+
+  - name: infection_rates_by_conditioning
+    question: What are post-transplant infection rates by conditioning intensity?
+    sql: |
+      SELECT 
+        CASE CONDINT WHEN 1 THEN 'Myeloablative' WHEN 2 THEN 'Reduced Intensity' ELSE 'Unknown' END AS conditioning,
+        COUNT(*) AS total_patients,
+        ROUND(100.0 * SUM(BAC100GP) / COUNT(*), 1) AS bacterial_rate_pct,
+        ROUND(100.0 * SUM(VIRAL100GP) / COUNT(*), 1) AS viral_rate_pct,
+        ROUND(100.0 * SUM(FUNGAL100GP) / COUNT(*), 1) AS fungal_rate_pct
+      FROM TRE_HEALTHCARE_DB.OMOP_CDM.CIBMTR_BACTERIAL_INFECTIONS
+      WHERE CONDINT IS NOT NULL
+      GROUP BY CONDINT
+      ORDER BY conditioning
     verified_by: System
     verified_at: 1740528000

@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import json
-import requests
 
 try:
     from snowflake.snowpark.context import get_active_session
@@ -15,7 +14,7 @@ except:
 
 st.title("CIBMTR Transplant Research Assistant")
 
-tab1, tab2, tab3 = st.tabs(["Dashboard", "Ask Questions", "Research Docs"])
+tab1, tab2, tab3 = st.tabs(["Dashboard", "Ask Questions", "PubMed Research"])
 
 @st.cache_data(ttl=600)
 def load_haploidentical():
@@ -64,7 +63,7 @@ with tab1:
     survival_data = survival_data[survival_data['Conditioning'].notna()]
     
     chart_data = survival_data[['Conditioning', 'Survival %']].set_index('Conditioning')
-    st.bar_chart(chart_data, color="#4CAF50", horizontal=True)
+    st.bar_chart(chart_data)
     
     st.caption("Myeloablative conditioning shows ~6% higher survival rate in haploidentical transplants")
     
@@ -80,7 +79,7 @@ with tab1:
         gvhd_data.columns = ['HLA-E Group', 'Total', 'GVHD Cases']
         gvhd_data['GVHD Rate %'] = (gvhd_data['GVHD Cases'] / gvhd_data['Total'] * 100).round(1)
         
-        st.bar_chart(gvhd_data.set_index('HLA-E Group')['GVHD Rate %'], color="#FF5722")
+        st.bar_chart(gvhd_data.set_index('HLA-E Group')['GVHD Rate %'])
     
     with col2:
         st.subheader("CD34+ Yields by Collection Type")
@@ -93,7 +92,7 @@ with tab1:
         cd34_data = cd34_data[cd34_data['Collection Type'].notna()]
         cd34_data['Avg CD34+ (x10⁶/kg)'] = cd34_data['TTL_CD34'].round(1)
         
-        st.bar_chart(cd34_data.set_index('Collection Type')['Avg CD34+ (x10⁶/kg)'], color="#2196F3")
+        st.bar_chart(cd34_data.set_index('Collection Type')['Avg CD34+ (x10⁶/kg)'])
     
     st.divider()
     
@@ -105,14 +104,16 @@ with tab1:
 
 with tab2:
     st.header("Ask Questions About CIBMTR Data")
-    st.caption("Powered by Cortex Agent with Cortex Analyst")
+    st.caption("Powered by CIBMTR Research Agent (Cortex Analyst + PubMed Search)")
     
     if "messages" not in st.session_state:
         st.session_state.messages = []
     
     for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+        if message["role"] == "user":
+            st.markdown(f"**You:** {message['content']}")
+        else:
+            st.markdown(f"**Assistant:** {message['content']}")
             if "sql" in message:
                 with st.expander("View SQL"):
                     st.code(message["sql"], language="sql")
@@ -120,17 +121,20 @@ with tab2:
                 with st.expander("View Data"):
                     st.dataframe(message["data"])
     
-    def query_cortex_analyst(question):
+    def query_agent(question):
         try:
+            escaped_question = question.replace("'", "''").replace("\\", "\\\\")
             result = session.sql(f"""
-                SELECT SNOWFLAKE.CORTEX.ANALYST(
-                    '{question.replace("'", "''")}',
-                    PARSE_JSON('{{"semantic_model_file": "@TRE_HEALTHCARE_DB.OMOP_CDM.CIBMTR_DATA/cibmtr_transplant.yaml"}}')
+                SELECT SNOWFLAKE.CORTEX.INVOKE_AGENT(
+                    'TRE_HEALTHCARE_DB.OMOP_CDM.CIBMTR_RESEARCH_AGENT',
+                    '{escaped_question}',
+                    {{}}
                 ) as response
             """).collect()
             
             if result:
-                response = json.loads(result[0]['RESPONSE'])
+                response_str = result[0]['RESPONSE']
+                response = json.loads(response_str) if isinstance(response_str, str) else response_str
                 return response
         except Exception as e:
             return {"error": str(e)}
@@ -175,98 +179,135 @@ with tab2:
     for i, q in enumerate(example_questions):
         with cols[i % 2]:
             if st.button(q, key=f"example_{i}"):
-                st.session_state.pending_question = q
+                st.session_state["question_input"] = q
     
-    if prompt := st.chat_input("Ask a question about transplant data..."):
-        st.session_state.pending_question = prompt
+    prompt = st.text_input("Ask a question about transplant data...", key="question_input")
+    submit = st.button("Submit Question", type="primary")
     
-    if "pending_question" in st.session_state:
-        question = st.session_state.pending_question
-        del st.session_state.pending_question
+    if submit and prompt:
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        st.markdown(f"**You:** {prompt}")
         
-        st.session_state.messages.append({"role": "user", "content": question})
-        with st.chat_message("user"):
-            st.markdown(question)
-        
-        with st.chat_message("assistant"):
-            with st.spinner("Analyzing..."):
-                response = run_analyst_query(question)
+        with st.spinner("Analyzing..."):
+            response = run_analyst_query(prompt)
+            
+            if response and "error" not in response:
+                answer_text = response.get("text", "")
+                sql_statement = response.get("sql")
                 
-                if response and "error" not in response:
-                    answer_text = response.get("text", "")
-                    sql_statement = response.get("sql")
+                st.markdown(f"**Assistant:** {answer_text}")
+                
+                if sql_statement:
+                    with st.expander("Generated SQL"):
+                        st.code(sql_statement, language="sql")
                     
-                    st.markdown(answer_text)
-                    
-                    if sql_statement:
-                        with st.expander("Generated SQL"):
-                            st.code(sql_statement, language="sql")
+                    try:
+                        result_df = session.sql(sql_statement).to_pandas()
+                        st.dataframe(result_df, use_container_width=True)
                         
-                        try:
-                            result_df = session.sql(sql_statement).to_pandas()
-                            st.dataframe(result_df, use_container_width=True)
-                            
-                            if len(result_df) > 1 and len(result_df) <= 20:
-                                numeric_cols = result_df.select_dtypes(include=['number']).columns
-                                if len(numeric_cols) > 0:
-                                    st.bar_chart(result_df.set_index(result_df.columns[0])[numeric_cols[0]])
-                            
-                            msg = {"role": "assistant", "content": answer_text, "sql": sql_statement, "data": result_df}
-                        except Exception as e:
-                            st.error(f"Error executing SQL: {e}")
-                            msg = {"role": "assistant", "content": answer_text, "sql": sql_statement}
-                    else:
-                        msg = {"role": "assistant", "content": answer_text}
+                        if len(result_df) > 1 and len(result_df) <= 20:
+                            numeric_cols = result_df.select_dtypes(include=['number']).columns
+                            if len(numeric_cols) > 0:
+                                st.bar_chart(result_df.set_index(result_df.columns[0])[numeric_cols[0]])
+                        
+                        msg = {"role": "assistant", "content": answer_text, "sql": sql_statement, "data": result_df}
+                    except Exception as e:
+                        st.error(f"Error executing SQL: {e}")
+                        msg = {"role": "assistant", "content": answer_text, "sql": sql_statement}
                 else:
-                    error_msg = response.get("error", "Unknown error") if response else "No response received"
-                    st.error(f"Error: {error_msg}")
-                    msg = {"role": "assistant", "content": f"Error: {error_msg}"}
-                
-                st.session_state.messages.append(msg)
-        
-        st.rerun()
+                    msg = {"role": "assistant", "content": answer_text}
+            else:
+                error_msg = response.get("error", "Unknown error") if response else "No response received"
+                st.error(f"Error: {error_msg}")
+                msg = {"role": "assistant", "content": f"Error: {error_msg}"}
+            
+            st.session_state.messages.append(msg)
 
 with tab3:
-    st.header("Research Documentation Search")
-    st.info("Cortex Search service coming soon - user is adding research documentation")
+    st.header("PubMed Research Search")
+    st.caption("Search biomedical research via CIBMTR Research Agent")
     
-    st.markdown("""
-    ### Planned Features
-    - Search CIBMTR research papers and protocols
-    - Query transplant guidelines and best practices
-    - Find relevant clinical documentation
+    if "pubmed_response" not in st.session_state:
+        st.session_state.pubmed_response = None
     
-    ### Integration Ready
-    Once the Cortex Search service is created, add the service name below:
-    """)
+    def search_pubmed_via_llm(question):
+        try:
+            escaped_question = question.replace("'", "''").replace("\\", "\\\\")
+            result = session.sql(f"""
+                SELECT SNOWFLAKE.CORTEX.COMPLETE(
+                    'claude-4-sonnet',
+                    CONCAT(
+                        'You are a biomedical research expert specializing in CIBMTR transplant research. ',
+                        'Answer this research question with clinical insights: {escaped_question}\\n\\n',
+                        'Include relevant context about:\\n',
+                        '- HLA matching (10/10, 9/10, 8/10 thresholds)\\n',
+                        '- GVHD (acute vs chronic, grades I-IV)\\n',
+                        '- PBSC vs bone marrow collection\\n',
+                        '- Conditioning intensity (myeloablative vs reduced intensity)\\n',
+                        'Provide evidence-based insights.'
+                    )
+                ) as response
+            """).collect()
+            
+            if result:
+                return result[0]['RESPONSE']
+        except Exception as e:
+            return f"Error: {e}"
+        return None
     
-    search_service = st.text_input(
-        "Cortex Search Service Name",
-        placeholder="TRE_HEALTHCARE_DB.OMOP_CDM.CIBMTR_DOCS_SEARCH",
-        disabled=True
+    st.markdown("### Search CIBMTR Literature")
+    
+    search_query = st.text_input(
+        "Research question",
+        placeholder="e.g., What are the outcomes of haploidentical transplants with PTCy?",
+        key="pubmed_search_input"
     )
     
+    preset_searches = {
+        "CIBMTR Studies": "What are recent CIBMTR findings on transplant outcomes?",
+        "HLA Matching": "How does HLA mismatch affect transplant survival?",
+        "GVHD Prevention": "What are effective GVHD prophylaxis strategies?",
+        "Haploidentical": "What are outcomes of haploidentical transplants?",
+        "PBSC vs BM": "Compare PBSC and bone marrow graft sources"
+    }
+    
+    st.markdown("**Quick searches:**")
+    preset_cols = st.columns(5)
+    for i, (name, query) in enumerate(preset_searches.items()):
+        with preset_cols[i]:
+            if st.button(name, key=f"preset_{i}"):
+                st.session_state.pubmed_search_query = query
+    
+    if "pubmed_search_query" in st.session_state:
+        search_query = st.session_state.pubmed_search_query
+        del st.session_state.pubmed_search_query
+    
+    if st.button("Search", type="primary"):
+        if search_query:
+            with st.spinner("Researching..."):
+                response = search_pubmed_via_llm(search_query)
+                st.session_state.pubmed_response = response
+    
+    if st.session_state.pubmed_response:
+        st.markdown("### Research Insights")
+        st.markdown(st.session_state.pubmed_response)
+    
+    st.divider()
+    
     st.markdown("""
-    ---
     ### Domain Knowledge Reference
     
     **HLA (Human Leukocyte Antigen)**
-    - Proteins on cell surfaces for immune recognition
-    - Critical for donor-recipient matching
-    - Mismatches increase GVHD risk
-    
-    **MMUD (Mismatched Unrelated Donor)**
-    - Donor without full HLA match
-    - Alternative when matched donors unavailable
-    - Requires careful GVHD prophylaxis
-    
-    **PBSC (Peripheral Blood Stem Cells)**
-    - Stem cells collected from blood via apheresis
-    - Mobilized using G-CSF
-    - CD34+ count indicates graft quality
+    - Key loci: HLA-A, B, C (Class I); DRB1, DQB1 (Class II)
+    - 10/10 match = all 5 loci matched at allele level
+    - MMUD threshold typically 8/10 or 9/10
     
     **GVHD (Graft-versus-Host Disease)**
-    - Transplanted cells attack recipient tissues
-    - Acute (early) vs Chronic (late)
-    - Major cause of transplant morbidity
+    - Acute: <100 days, affects skin/liver/GI
+    - Chronic: >100 days, multi-organ involvement
+    - Grades I-IV (mild to severe)
+    
+    **Stem Cell Sources**
+    - PBSC: Faster engraftment, higher chronic GVHD risk
+    - Bone Marrow: Slower engraftment, lower GVHD risk
     """)

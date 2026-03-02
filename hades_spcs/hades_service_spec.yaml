@@ -1,0 +1,26 @@
+spec:
+  containers:
+    - name: hades
+      image: /TRE_HEALTHCARE_DB/OMOP_CDM/HADES_REPO/hades-snowflake:latest
+      env:
+        DISABLE_AUTH: "true"
+        ROOT: "TRUE"
+        DATABASECONNECTOR_JAR_FOLDER: "/opt/hades/jdbc_drivers"
+      resources:
+        requests:
+          memory: 8Gi
+          cpu: 4
+        limits:
+          memory: 16Gi
+          cpu: 8
+      volumeMounts:
+        - name: hades-data
+          mountPath: /home/rstudio/data
+  endpoints:
+    - name: rstudio
+      port: 8787
+      public: true
+  volumes:
+    - name: hades-data
+      source: local
+      size: 10Gi
