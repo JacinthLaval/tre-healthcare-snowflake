@@ -1,0 +1,10 @@
+[project]
+name = "precision-advisor"
+version = "0.1.0"
+description = "CYP2C19 Pharmacogenomics Clinical Decision Support"
+requires-python = ">=3.11"
+dependencies = [
+    "streamlit>=1.52.0",
+    "snowflake-snowpark-python",
+    "pandas",
+]

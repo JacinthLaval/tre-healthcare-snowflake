@@ -1,0 +1,23 @@
+definition_version: 2
+entities:
+  precision_advisor:
+    type: streamlit
+    identifier:
+      name: PRECISION_ADVISOR
+      database: HEALTHCARE_DATABASE
+      schema: DEFAULT_SCHEMA
+    query_warehouse: COMPUTE_WH
+    compute_pool: SYSTEM_COMPUTE_POOL_CPU
+    runtime_name: SYSTEM$ST_CONTAINER_RUNTIME_PY3_11
+    external_access_integrations:
+      - SNOWFLAKE_INTELLIGENCE_EXTERNALACCESS_INTEGRATION
+    main_file: streamlit_app.py
+    artifacts:
+      - streamlit_app.py
+      - pyproject.toml
+      - pages/1_Patient_Browser.py
+      - pages/2_ER_Console.py
+      - utils/__init__.py
+      - utils/analyst.py
+      - utils/agent.py
+      - utils/cyp2c19.py

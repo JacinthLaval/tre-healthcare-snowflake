@@ -1,0 +1,439 @@
+name: CLINICAL_GENOMICS
+description: |
+  Combined clinical and genomic data model linking synthetic healthcare data with 1000 Genomes Project samples.
+  
+  **Data Sources:**
+  - Clinical data from SYNTHETIC_HEALTHCARE_DATA (Synthea) - 3,202 linked patients
+  - Genomic data from 1000 Genomes Project - PANEL demographics, CLINVAR annotations
+  
+  **Key Relationships:**
+  - PATIENT_GENOME_MAPPING links clinical patients to genome samples
+  - Use this to query conditions, medications, procedures alongside genetic variants
+  
+  **Example Questions:**
+  - What conditions are most common among patients with European ancestry?
+  - Show medications prescribed to patients linked to genome samples
+  - What is the age distribution of patients by population group?
+
+tables:
+  - name: PATIENT_GENOME_MAPPING
+    description: Links clinical patients to 1000 Genomes Project samples. Each row maps one Synthea patient to one genome sample.
+    base_table:
+      database: HEALTHCARE_DATABASE
+      schema: DEFAULT_SCHEMA
+      table: PATIENT_GENOME_MAPPING
+    dimensions:
+      - name: SAMPLE_ID
+        description: 1000 Genomes Project sample identifier
+        expr: SAMPLE_ID
+        data_type: VARCHAR
+        sample_values: ['HG00096', 'NA12878', 'HG01879']
+      - name: FAMILY_ID
+        description: Family group in genomics study
+        expr: FAMILY_ID
+        data_type: VARCHAR
+      - name: GENOME_GENDER
+        description: Gender from genomics study (male/female)
+        expr: GENOME_GENDER
+        data_type: VARCHAR
+        sample_values: ['male', 'female']
+      - name: POPULATION
+        description: Population code from 1000 Genomes (GBR=British, CEU=Utah European, CHB=Han Chinese, etc.)
+        expr: POPULATION
+        data_type: VARCHAR
+        sample_values: ['GBR', 'CEU', 'CHB', 'YRI', 'JPT']
+      - name: SUPERPOPULATION
+        description: Continental ancestry group (EUR=European, EAS=East Asian, AFR=African, SAS=South Asian, AMR=Americas)
+        expr: SUPERPOPULATION
+        data_type: VARCHAR
+        sample_values: ['EUR', 'EAS', 'AFR', 'SAS', 'AMR']
+      - name: PATIENT_ID
+        description: Synthea patient identifier - use to join with clinical tables
+        expr: PATIENT_ID
+        data_type: NUMBER
+      - name: PATIENT_NAME
+        description: Patient full name
+        expr: PATIENT_NAME
+        data_type: VARCHAR
+      - name: BIRTHDATE
+        description: Patient date of birth
+        expr: BIRTHDATE
+        data_type: DATE
+      - name: PATIENT_GENDER
+        description: Patient gender from clinical record (M/F)
+        expr: PATIENT_GENDER
+        data_type: VARCHAR
+        sample_values: ['M', 'F']
+      - name: RACE
+        description: Patient race
+        expr: RACE
+        data_type: VARCHAR
+        sample_values: ['white', 'black', 'asian', 'native', 'other']
+      - name: ETHNICITY
+        description: Patient ethnicity
+        expr: ETHNICITY
+        data_type: VARCHAR
+        sample_values: ['hispanic', 'nonhispanic']
+      - name: CITY
+        description: Patient city
+        expr: CITY
+        data_type: VARCHAR
+      - name: STATE
+        description: Patient state
+        expr: STATE
+        data_type: VARCHAR
+    primary_key:
+      columns:
+        - SAMPLE_ID
+
+  - name: CONDITIONS
+    description: Patient diagnoses and conditions from clinical records. Contains SNOMED-CT coded conditions.
+    base_table:
+      database: SYNTHETIC_HEALTHCARE_DATA__CLINICAL_AND_CLAIMS
+      schema: SILVER
+      table: CONDITIONS
+    dimensions:
+      - name: CONDITION_ID
+        description: Unique condition record identifier
+        expr: CONDITION_ID
+        data_type: NUMBER
+      - name: PATIENT_ID
+        description: Patient identifier - links to PATIENT_GENOME_MAPPING
+        expr: PATIENT_ID
+        data_type: NUMBER
+      - name: CONDITION_START
+        description: Date condition was diagnosed
+        expr: CONDITION_START
+        data_type: DATE
+      - name: CONDITION_STOP
+        description: Date condition resolved (null if ongoing)
+        expr: CONDITION_STOP
+        data_type: DATE
+      - name: CODE
+        description: SNOMED-CT code for the condition
+        expr: CODE
+        data_type: VARCHAR
+      - name: DESCRIPTION
+        description: Human-readable condition description
+        expr: DESCRIPTION
+        data_type: VARCHAR
+        sample_values: ['Diabetes', 'Hypertension', 'Asthma']
+    primary_key:
+      columns:
+        - CONDITION_ID
+
+  - name: MEDICATIONS
+    description: Medication prescriptions and administrations for patients.
+    base_table:
+      database: SYNTHETIC_HEALTHCARE_DATA__CLINICAL_AND_CLAIMS
+      schema: SILVER
+      table: MEDICATIONS
+    dimensions:
+      - name: MEDICATION_ID
+        description: Unique medication record identifier
+        expr: MEDICATION_ID
+        data_type: NUMBER
+      - name: PATIENT_ID
+        description: Patient identifier - links to PATIENT_GENOME_MAPPING
+        expr: PATIENT_ID
+        data_type: NUMBER
+      - name: MED_START
+        description: Medication start date
+        expr: MED_START
+        data_type: TIMESTAMP
+      - name: MED_STOP
+        description: Medication stop date
+        expr: MED_STOP
+        data_type: TIMESTAMP
+      - name: CODE
+        description: RxNorm medication code
+        expr: CODE
+        data_type: VARCHAR
+      - name: DESCRIPTION
+        description: Medication name and description
+        expr: DESCRIPTION
+        data_type: VARCHAR
+      - name: REASONCODE
+        description: SNOMED code for reason prescribed
+        expr: REASONCODE
+        data_type: VARCHAR
+      - name: REASONDESCRIPTION
+        description: Reason for prescription
+        expr: REASONDESCRIPTION
+        data_type: VARCHAR
+    facts:
+      - name: BASE_COST
+        description: Base cost of medication
+        expr: BASE_COST
+        data_type: NUMBER
+      - name: TOTALCOST
+        description: Total cost including all dispenses
+        expr: TOTALCOST
+        data_type: NUMBER
+      - name: DISPENSES
+        description: Number of times dispensed
+        expr: DISPENSES
+        data_type: NUMBER
+
+  - name: PROCEDURES
+    description: Medical procedures performed on patients.
+    base_table:
+      database: SYNTHETIC_HEALTHCARE_DATA__CLINICAL_AND_CLAIMS
+      schema: SILVER
+      table: PROCEDURES
+    dimensions:
+      - name: PATIENT_ID
+        description: Patient identifier - links to PATIENT_GENOME_MAPPING
+        expr: PATIENT_ID
+        data_type: NUMBER
+      - name: PROC_START
+        description: Procedure start date/time
+        expr: PROC_START
+        data_type: TIMESTAMP
+      - name: PROC_STOP
+        description: Procedure end date/time
+        expr: PROC_STOP
+        data_type: TIMESTAMP
+      - name: CODE
+        description: SNOMED-CT procedure code
+        expr: CODE
+        data_type: VARCHAR
+      - name: DESCRIPTION
+        description: Procedure description
+        expr: DESCRIPTION
+        data_type: VARCHAR
+      - name: REASONCODE
+        description: Reason code for procedure
+        expr: REASONCODE
+        data_type: NUMBER
+      - name: REASONDESCRIPTION
+        description: Reason description
+        expr: REASONDESCRIPTION
+        data_type: VARCHAR
+
+  - name: ENCOUNTERS
+    description: Healthcare encounters (visits, admissions, etc.)
+    base_table:
+      database: SYNTHETIC_HEALTHCARE_DATA__CLINICAL_AND_CLAIMS
+      schema: SILVER
+      table: ENCOUNTERS
+    dimensions:
+      - name: ENCOUNTER_ID
+        description: Unique encounter identifier
+        expr: ENCOUNTER_ID
+        data_type: NUMBER
+      - name: PATIENT_ID
+        description: Patient identifier - links to PATIENT_GENOME_MAPPING
+        expr: PATIENT_ID
+        data_type: NUMBER
+      - name: ENCOUNTER_START
+        description: Encounter start datetime
+        expr: ENCOUNTER_START
+        data_type: TIMESTAMP
+      - name: ENCOUNTER_STOP
+        description: Encounter end datetime
+        expr: ENCOUNTER_STOP
+        data_type: TIMESTAMP
+      - name: ENCOUNTERCLASS
+        description: Type of encounter (inpatient, outpatient, emergency, etc.)
+        expr: ENCOUNTERCLASS
+        data_type: VARCHAR
+        sample_values: ['inpatient', 'outpatient', 'emergency', 'wellness', 'urgentcare']
+      - name: CODE
+        description: Encounter type code from SNOMED-CT
+        expr: CODE
+        data_type: NUMBER
+      - name: DESCRIPTION
+        description: Encounter description
+        expr: DESCRIPTION
+        data_type: VARCHAR
+    facts:
+      - name: TOTAL_CLAIM_COST
+        description: Total cost of encounter
+        expr: TOTAL_CLAIM_COST
+        data_type: NUMBER
+      - name: PAYER_COVERAGE
+        description: Amount covered by payer
+        expr: PAYER_COVERAGE
+        data_type: NUMBER
+    primary_key:
+      columns:
+        - ENCOUNTER_ID
+
+  - name: PANEL
+    description: 1000 Genomes Project sample demographics and family relationships.
+    base_table:
+      database: HEALTHCARE_DATABASE
+      schema: DEFAULT_SCHEMA
+      table: PANEL
+    dimensions:
+      - name: SAMPLE_ID
+        description: Unique genome sample identifier
+        expr: SAMPLE_ID
+        data_type: VARCHAR
+      - name: FAMILY_ID
+        description: Family identifier for related samples
+        expr: FAMILY_ID
+        data_type: VARCHAR
+      - name: FATHER_ID
+        description: Father's sample ID (0 if unknown)
+        expr: FATHER_ID
+        data_type: VARCHAR
+      - name: MOTHER_ID
+        description: Mother's sample ID (0 if unknown)
+        expr: MOTHER_ID
+        data_type: VARCHAR
+      - name: GENDER
+        description: Gender (male/female)
+        expr: GENDER
+        data_type: VARCHAR
+      - name: POPULATION
+        description: Population code
+        expr: POPULATION
+        data_type: VARCHAR
+      - name: SUPERPOPULATION
+        description: Continental ancestry group
+        expr: SUPERPOPULATION
+        data_type: VARCHAR
+    primary_key:
+      columns:
+        - SAMPLE_ID
+
+  - name: CLINVAR
+    description: ClinVar clinical variant annotations with pathogenicity and disease associations.
+    base_table:
+      database: HEALTHCARE_DATABASE
+      schema: DEFAULT_SCHEMA
+      table: CLINVAR
+    dimensions:
+      - name: CHROM
+        description: Chromosome number
+        expr: CHROM
+        data_type: VARCHAR
+        sample_values: ['1', '2', 'X', 'Y']
+      - name: POS
+        description: Position on chromosome
+        expr: POS
+        data_type: NUMBER
+      - name: REF
+        description: Reference allele
+        expr: REF
+        data_type: VARCHAR
+      - name: ALT
+        description: Alternate allele
+        expr: ALT
+        data_type: VARCHAR
+      - name: GENESYMBOL
+        description: Gene symbol (e.g., BRCA1, TP53)
+        expr: GENESYMBOL
+        data_type: VARCHAR
+        sample_values: ['BRCA1', 'BRCA2', 'TP53', 'DMD', 'CFTR']
+      - name: CLNSIG
+        description: Clinical significance classification
+        expr: CLNSIG
+        data_type: VARCHAR
+        sample_values: ['Pathogenic', 'Likely pathogenic', 'Uncertain significance', 'Likely benign', 'Benign']
+      - name: CLNREVSTAT
+        description: Review status of clinical assertion
+        expr: CLNREVSTAT
+        data_type: VARCHAR
+      - name: TYPE
+        description: Variant type
+        expr: TYPE
+        data_type: VARCHAR
+        sample_values: ['single nucleotide variant', 'Deletion', 'Duplication', 'Insertion']
+      - name: NAME
+        description: HGVS variant name
+        expr: NAME
+        data_type: VARCHAR
+      - name: ORIGIN
+        description: Variant origin (germline, somatic)
+        expr: ORIGIN
+        data_type: VARCHAR
+    facts:
+      - name: ALLELEID
+        description: ClinVar allele identifier
+        expr: ALLELEID
+        data_type: NUMBER
+      - name: VARIATIONID
+        description: ClinVar variation identifier
+        expr: VARIATIONID
+        data_type: NUMBER
+      - name: NUMBERSUBMITTERS
+        description: Number of submitters for this variant
+        expr: NUMBERSUBMITTERS
+        data_type: NUMBER
+
+relationships:
+  - name: mapping_to_conditions
+    left_table: PATIENT_GENOME_MAPPING
+    right_table: CONDITIONS
+    relationship_columns:
+      - left_column: PATIENT_ID
+        right_column: PATIENT_ID
+    relationship_type: one_to_many
+    
+  - name: mapping_to_medications
+    left_table: PATIENT_GENOME_MAPPING
+    right_table: MEDICATIONS
+    relationship_columns:
+      - left_column: PATIENT_ID
+        right_column: PATIENT_ID
+    relationship_type: one_to_many
+    
+  - name: mapping_to_procedures
+    left_table: PATIENT_GENOME_MAPPING
+    right_table: PROCEDURES
+    relationship_columns:
+      - left_column: PATIENT_ID
+        right_column: PATIENT_ID
+    relationship_type: one_to_many
+    
+  - name: mapping_to_encounters
+    left_table: PATIENT_GENOME_MAPPING
+    right_table: ENCOUNTERS
+    relationship_columns:
+      - left_column: PATIENT_ID
+        right_column: PATIENT_ID
+    relationship_type: one_to_many
+    
+  - name: mapping_to_panel
+    left_table: PATIENT_GENOME_MAPPING
+    right_table: PANEL
+    relationship_columns:
+      - left_column: SAMPLE_ID
+        right_column: SAMPLE_ID
+    relationship_type: one_to_one
+
+verified_queries:
+  - name: Conditions by ancestry
+    question: What are the top 10 conditions among patients with European ancestry?
+    sql: |
+      SELECT c.DESCRIPTION, COUNT(*) as condition_count
+      FROM HEALTHCARE_DATABASE.DEFAULT_SCHEMA.PATIENT_GENOME_MAPPING m
+      JOIN SYNTHETIC_HEALTHCARE_DATA__CLINICAL_AND_CLAIMS.SILVER.CONDITIONS c 
+        ON m.PATIENT_ID = c.PATIENT_ID
+      WHERE m.SUPERPOPULATION = 'EUR'
+      GROUP BY c.DESCRIPTION
+      ORDER BY condition_count DESC
+      LIMIT 10
+      
+  - name: Patient count by population
+    question: How many patients are in each population group?
+    sql: |
+      SELECT POPULATION, SUPERPOPULATION, COUNT(*) as patient_count
+      FROM HEALTHCARE_DATABASE.DEFAULT_SCHEMA.PATIENT_GENOME_MAPPING
+      GROUP BY POPULATION, SUPERPOPULATION
+      ORDER BY patient_count DESC
+      
+  - name: Medications by ancestry
+    question: What medications are most prescribed to patients with Asian ancestry?
+    sql: |
+      SELECT m2.DESCRIPTION as medication, COUNT(*) as prescription_count
+      FROM HEALTHCARE_DATABASE.DEFAULT_SCHEMA.PATIENT_GENOME_MAPPING m
+      JOIN SYNTHETIC_HEALTHCARE_DATA__CLINICAL_AND_CLAIMS.SILVER.MEDICATIONS m2
+        ON m.PATIENT_ID = m2.PATIENT_ID
+      WHERE m.SUPERPOPULATION = 'EAS'
+      GROUP BY m2.DESCRIPTION
+      ORDER BY prescription_count DESC
+      LIMIT 10
