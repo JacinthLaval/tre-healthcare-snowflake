@@ -1,0 +1,21 @@
+spec:
+  containers:
+    - name: evo2-7b
+      image: /healthcare_database/default_schema/evo2_repo/evo2-7b:v3-baked
+      resources:
+        requests:
+          nvidia.com/gpu: 1
+          memory: 14Gi
+          cpu: 2
+        limits:
+          nvidia.com/gpu: 1
+          memory: 20Gi
+          cpu: 4
+      env:
+        EVO2_MODEL: evo2_7b
+        HF_HOME: /models
+        CUDA_VISIBLE_DEVICES: "0"
+        HF_HUB_OFFLINE: "1"
+  endpoints:
+    - name: api
+      port: 8080

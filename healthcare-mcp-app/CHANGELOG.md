@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-03-07
+
+### Added
+- Evo2 7B genomic foundation model integration (SPCS container service)
+  - CYP2C19 variant functional impact scoring via Evo2 service functions
+  - Mock scoring fallback with clinically accurate CYP2C19 variant data
+  - Delta score visualization with color-coded pathogenicity badges
+  - Expandable Evo2 scoring details in ER Console
+- Dual-scenario Research Agent output
+  - Standard of Care recommendation (without genomic data)
+  - Precision Medicine recommendation (with CYP2C19 + Evo2 data)
+  - Stacked card layout with visual "Precision Medicine Upgrade" divider
+- Evo2 SPCS container with baked model weights (eliminates cold start download)
+  - Service functions: EVO2_HEALTH(), EVO2_VARIANT_SCORE()
+  - Auto-suspend (3600s) for cost management
+  - HF_HUB_OFFLINE mode for air-gapped operation
+- Evo2 genomic analysis Cortex Code skill
+- Expandable "Show all/Show less" for Conditions and Medications lists
+- CYP2C19 variant detail expander in DNA view
+
+### Changed
+- Renamed "NeoResearchAgent" to "Research Agent" in UI
+- Default tab now routes to ER Console
+- ACTION REQUIRED alert moved into Precision Medicine card
+- Snowflake column name handling (UPPERCASE fallback)
+
+### Technical
+- Evo2 container: FastAPI + quantize.py, SPCS service spec, GPU capability detection
+- SPCS data format handling for service function POST requests
+- Docker image with baked 14GB Evo2 7B weights (v3-baked)
+
 ## [1.0.0] - 2026-03-04
 
 ### Added

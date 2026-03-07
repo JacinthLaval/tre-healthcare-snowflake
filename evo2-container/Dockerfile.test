@@ -1,0 +1,10 @@
+FROM python:3.11-slim
+
+RUN pip install fastapi uvicorn pydantic
+
+WORKDIR /app
+COPY server.py /app/server.py
+COPY quantize.py /app/quantize.py
+COPY validate.py /app/validate.py
+
+CMD ["python", "/app/validate.py"]
