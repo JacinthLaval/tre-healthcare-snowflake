@@ -1,7 +1,21 @@
 import { MCPRequest, MCPResponse, MCPTool, ToolCallResult } from '@/types/mcp';
 
-const MCP_ENDPOINT = 'https://sfsehol-si_industry_demos_healthcare_lmszks.snowflakecomputing.com/api/v2/databases/TRE_HEALTHCARE_DB/schemas/OMOP_CDM/mcp-servers/HEALTHCARE_MCP_SERVER';
-const SQL_ENDPOINT = 'https://sfsehol-si_industry_demos_healthcare_lmszks.snowflakecomputing.com/api/v2/statements';
+const SNOWFLAKE_API_BASE = 'https://sfsehol-si_industry_demos_healthcare_lmszks.snowflakecomputing.com';
+
+function getBaseUrl(): string {
+  if (typeof window !== 'undefined' && window.location.hostname.endsWith('.snowflakecomputing.app')) {
+    return '';
+  }
+  return SNOWFLAKE_API_BASE;
+}
+
+function getMcpEndpoint(): string {
+  return `${getBaseUrl()}/api/v2/databases/TRE_HEALTHCARE_DB/schemas/OMOP_CDM/mcp-servers/HEALTHCARE_MCP_SERVER`;
+}
+
+function getSqlEndpoint(): string {
+  return `${getBaseUrl()}/api/v2/statements`;
+}
 
 export class MCPClient {
   private patToken: string;
@@ -19,7 +33,7 @@ export class MCPClient {
       params,
     };
 
-    const response = await fetch(MCP_ENDPOINT, {
+    const response = await fetch(getMcpEndpoint(), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -42,8 +56,8 @@ export class MCPClient {
     return data.result as T;
   }
 
-  async executeSQL(sql: string, timeout: number = 60): Promise<Record<string, unknown>[]> {
-    const response = await fetch(SQL_ENDPOINT, {
+  async executeSQL(sql: string, timeout: number = 30): Promise<Record<string, unknown>[]> {
+    const response = await fetch(getSqlEndpoint(), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -59,16 +73,26 @@ export class MCPClient {
       }),
     });
 
-    if (!response.ok) {
+    let data: Record<string, unknown>;
+
+    if (response.status === 408) {
+      data = await response.json();
+      const handle = data.statementHandle || data.statementStatusUrl;
+      if (handle) {
+        const h = typeof handle === 'string' && handle.includes('/') ? handle.split('/').pop()! : handle as string;
+        data = await this.pollForResults(h);
+      } else {
+        throw new Error(`SQL execution timed out (408) with no statement handle`);
+      }
+    } else if (!response.ok) {
       const text = await response.text();
       throw new Error(`SQL execution failed: ${response.status} - ${text}`);
+    } else {
+      data = await response.json();
     }
 
-    let data = await response.json();
-    
-    // Handle async execution - poll for results
-    if (data.code === '333334' || data.message?.includes('Asynchronous execution')) {
-      const statementHandle = data.statementHandle;
+    if (data.code === '333334' || (data.message as string)?.includes?.('Asynchronous execution')) {
+      const statementHandle = data.statementHandle as string;
       if (statementHandle) {
         data = await this.pollForResults(statementHandle);
       }
@@ -80,9 +104,34 @@ export class MCPClient {
 
     // Parse the results
     const columns = data.resultSetMetaData?.rowType?.map((col: { name: string }) => col.name) || [];
-    const rows = data.data || [];
-    
-    return rows.map((row: unknown[]) => {
+    let allRows: unknown[][] = (data.data || []) as unknown[][];
+
+    const partitionInfo = (data.resultSetMetaData as any)?.partitionInfo as any[];
+    const statementHandle = data.statementHandle as string;
+    if (partitionInfo && partitionInfo.length > 1 && statementHandle) {
+      for (let i = 1; i < partitionInfo.length; i++) {
+        try {
+          const partitionUrl = `${getSqlEndpoint()}/${statementHandle}?partition=${i}`;
+          const partResp = await fetch(partitionUrl, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${this.patToken}`,
+              'Accept': 'application/json',
+            },
+          });
+          if (partResp.ok) {
+            const partData = await partResp.json();
+            if (partData.data) {
+              allRows = allRows.concat(partData.data as unknown[][]);
+            }
+          }
+        } catch (e) {
+          console.warn(`[MCP] Failed to fetch partition ${i}:`, e);
+        }
+      }
+    }
+
+    return allRows.map((row: unknown[]) => {
       const obj: Record<string, unknown> = {};
       columns.forEach((col: string, i: number) => {
         obj[col] = row[i];
@@ -91,19 +140,45 @@ export class MCPClient {
     });
   }
 
-  private async pollForResults(statementHandle: string, maxAttempts: number = 60): Promise<Record<string, unknown>> {
-    const pollUrl = `${SQL_ENDPOINT}/${statementHandle}`;
+  private waitForTabVisible(): Promise<void> {
+    if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+      return Promise.resolve();
+    }
+    return new Promise(resolve => {
+      const handler = () => {
+        if (document.visibilityState === 'visible') {
+          document.removeEventListener('visibilitychange', handler);
+          resolve();
+        }
+      };
+      document.addEventListener('visibilitychange', handler);
+    });
+  }
+
+  private async pollForResults(statementHandle: string, maxAttempts: number = 120): Promise<Record<string, unknown>> {
+    const pollUrl = `${getSqlEndpoint()}/${statementHandle}`;
     
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds between polls
+      await this.waitForTabVisible();
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
-      const response = await fetch(pollUrl, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${this.patToken}`,
-          'Accept': 'application/json',
-        },
-      });
+      let response: Response;
+      try {
+        response = await fetch(pollUrl, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${this.patToken}`,
+            'Accept': 'application/json',
+          },
+        });
+      } catch {
+        await this.waitForTabVisible();
+        continue;
+      }
+
+      if (response.status === 202 || response.status === 408) {
+        continue;
+      }
 
       if (!response.ok) {
         throw new Error(`Poll failed: ${response.status}`);
@@ -111,17 +186,14 @@ export class MCPClient {
 
       const data = await response.json();
       
-      // Check if query is complete
       if (data.code === '090001' || (data.data && data.data.length > 0)) {
         return data;
       }
       
-      // If still running, continue polling
       if (data.code === '333334') {
         continue;
       }
       
-      // If error, throw
       if (data.code && data.code !== '090001' && data.code !== '333334') {
         throw new Error(`Query error: ${data.message}`);
       }

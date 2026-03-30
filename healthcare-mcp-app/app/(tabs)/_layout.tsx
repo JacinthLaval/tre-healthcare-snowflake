@@ -27,6 +27,16 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="variant-similarity"
+        options={{
+          title: 'Similarity',
+          headerTitle: 'Variant Similarity',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="git-network" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="omop"
         options={{
           title: 'TRE/OMOP',

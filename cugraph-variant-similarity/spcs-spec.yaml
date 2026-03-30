@@ -1,0 +1,17 @@
+spec:
+  containers:
+    - name: cugraph
+      image: /HEALTHCARE_DATABASE/DEFAULT_SCHEMA/WEBAPP_REPO/cugraph-variant-sim:latest
+      resources:
+        requests:
+          nvidia.com/gpu: 1
+        limits:
+          nvidia.com/gpu: 1
+      env:
+        SNOWFLAKE_WAREHOUSE: SI_DEMO_WH
+  endpoints:
+    - name: api
+      port: 8080
+      public: true
+  networkPolicyConfig:
+    allowInternetEgress: false

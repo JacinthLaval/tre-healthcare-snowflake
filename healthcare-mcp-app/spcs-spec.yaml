@@ -1,0 +1,15 @@
+spec:
+  containers:
+    - name: webapp
+      image: /healthcare_database/default_schema/webapp_repo/precision-advisor:latest
+      resources:
+        requests:
+          memory: 256M
+          cpu: 0.5
+        limits:
+          memory: 512M
+          cpu: 1
+  endpoints:
+    - name: webapp
+      port: 8080
+      public: true
