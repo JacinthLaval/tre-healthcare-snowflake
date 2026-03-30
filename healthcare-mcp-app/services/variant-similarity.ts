@@ -34,6 +34,23 @@ export interface GraphSummary {
   communitySizes: Record<number, number>;
 }
 
+export interface GraphLayoutNode {
+  x: number;
+  y: number;
+  community: number;
+  sampleId: string;
+  patientName: string;
+  superpopulation: string;
+}
+
+export interface GraphLayout {
+  nodes: GraphLayoutNode[];
+  edges: [number, number, number][];
+  communities: number;
+  communitySizes: Record<string, number>;
+  modularity: number;
+}
+
 interface PgxRow {
   SAMPLE_ID: string;
   PATIENT_NAME: string;
@@ -353,6 +370,107 @@ export async function getGraphSummary(): Promise<GraphSummary> {
     edges: edgeCount,
     communities: Object.keys(communitySizes).length,
     communitySizes,
+  };
+}
+
+export async function getGraphLayout(maxEdges: number = 5000): Promise<GraphLayout> {
+  const backend = await detectBackend();
+
+  if (backend === 'cugraph') {
+    try {
+      const client = getMCPClient();
+      if (!client) throw new Error('Not connected');
+      const result = await client.executeSQL(
+        `SELECT HEALTHCARE_DATABASE.DEFAULT_SCHEMA.CUGRAPH_GRAPH_LAYOUT(${maxEdges}) AS RESULT`
+      ) as any[];
+      if (!result || result.length === 0) throw new Error('No result');
+      const val = result[0].RESULT || result[0].result;
+      const data = parseVariant(val);
+      const nodes: GraphLayoutNode[] = (data.nodes || []).map((n: any[]) => ({
+        x: n[0],
+        y: n[1],
+        community: n[2],
+        sampleId: n[3],
+        patientName: n[4],
+        superpopulation: n[5],
+      }));
+      return {
+        nodes,
+        edges: data.edges || [],
+        communities: data.communities,
+        communitySizes: data.community_sizes || {},
+        modularity: data.modularity,
+      };
+    } catch (e) {
+      console.warn('[VariantSim] cuGraph layout failed, using SQL fallback:', e);
+      _backend = 'sql';
+    }
+  }
+
+  const pgx = await loadPgxData();
+  if (!pgx) throw new Error('Failed to load data');
+
+  const n = pgx.patients.length;
+  const nodes: GraphLayoutNode[] = [];
+  const communityGroups = new Map<number, number[]>();
+
+  for (let i = 0; i < n; i++) {
+    const c = pgx.communities.get(pgx.patients[i].sampleId) || 0;
+    if (!communityGroups.has(c)) communityGroups.set(c, []);
+    communityGroups.get(c)!.push(i);
+  }
+
+  const commEntries = [...communityGroups.entries()].sort((a, b) => b[1].length - a[1].length);
+  const angleStep = (2 * Math.PI) / commEntries.length;
+
+  for (let ci = 0; ci < commEntries.length; ci++) {
+    const [cid, members] = commEntries[ci];
+    const cx = 0.5 + 0.3 * Math.cos(ci * angleStep);
+    const cy = 0.5 + 0.3 * Math.sin(ci * angleStep);
+    const spread = Math.min(0.15, 0.05 + members.length * 0.0001);
+
+    for (let mi = 0; mi < members.length; mi++) {
+      const a = (mi / members.length) * 2 * Math.PI;
+      const r = spread * Math.sqrt(mi / members.length);
+      const idx = members[mi];
+      const p = pgx.patients[idx];
+      nodes[idx] = {
+        x: cx + r * Math.cos(a),
+        y: cy + r * Math.sin(a),
+        community: cid,
+        sampleId: p.sampleId,
+        patientName: p.patientName,
+        superpopulation: p.superpopulation,
+      };
+    }
+  }
+
+  const edges: [number, number, number][] = [];
+  const sampleIdxMap = new Map<string, number>();
+  pgx.patients.forEach((p, i) => sampleIdxMap.set(p.sampleId, i));
+
+  let edgeCount = 0;
+  for (let i = 0; i < n && edgeCount < maxEdges; i++) {
+    for (let j = i + 1; j < n && edgeCount < maxEdges; j++) {
+      const sim = jaccardSimilarity(pgx.patients[i].variants, pgx.patients[j].variants, pgx.variantKeys);
+      if (sim >= 0.5) {
+        edges.push([i, j, Math.round(sim * 1000) / 1000]);
+        edgeCount++;
+      }
+    }
+  }
+
+  const communitySizes: Record<string, number> = {};
+  for (const [k, v] of communityGroups.entries()) {
+    communitySizes[String(k)] = v.length;
+  }
+
+  return {
+    nodes,
+    edges,
+    communities: communityGroups.size,
+    communitySizes,
+    modularity: 0,
   };
 }
 

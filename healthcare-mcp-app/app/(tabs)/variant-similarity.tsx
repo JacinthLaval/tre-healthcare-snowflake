@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -17,8 +17,11 @@ import {
   getCommunityProfile,
   getPatientCommunity,
   getBackendType,
+  getGraphLayout,
   SimilarPatient,
   CommunityProfile,
+  GraphLayout,
+  GraphLayoutNode,
 } from '@/services/variant-similarity';
 
 interface Patient {
@@ -48,10 +51,15 @@ export default function VariantSimilarityScreen() {
   const [isLoadingCommunity, setIsLoadingCommunity] = useState(false);
   const [showPatientPicker, setShowPatientPicker] = useState(false);
   const [patientSearch, setPatientSearch] = useState('');
-  const [activeView, setActiveView] = useState<'similar' | 'community'>('similar');
+  const [activeView, setActiveView] = useState<'similar' | 'community' | 'network'>('similar');
   const [topN, setTopN] = useState(15);
   const [error, setError] = useState<string | null>(null);
   const [backend, setBackend] = useState<string>('detecting...');
+  const [graphLayout, setGraphLayout] = useState<GraphLayout | null>(null);
+  const [isLoadingGraph, setIsLoadingGraph] = useState(false);
+  const [graphHighlight, setGraphHighlight] = useState<string | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
 
   useEffect(() => {
     const client = getMCPClient();
@@ -122,6 +130,160 @@ export default function VariantSimilarityScreen() {
       setIsLoadingCommunity(false);
     }
   };
+
+  const loadGraphLayout = async () => {
+    if (graphLayout) {
+      setActiveView('network');
+      return;
+    }
+    setIsLoadingGraph(true);
+    setActiveView('network');
+    try {
+      const layout = await getGraphLayout(5000);
+      setGraphLayout(layout);
+      setBackend(getBackendType());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load graph layout');
+    } finally {
+      setIsLoadingGraph(false);
+    }
+  };
+
+  const COMMUNITY_COLORS = ['#6C5CE7', '#E67E22', '#27AE60', '#E74C3C', '#3498DB', '#F39C12', '#1ABC9C', '#9B59B6'];
+
+  const drawGraph = useCallback(() => {
+    if (Platform.OS !== 'web' || !graphLayout || !canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const W = canvas.width;
+    const H = canvas.height;
+    const pad = 40;
+    const drawW = W - pad * 2;
+    const drawH = H - pad * 2;
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#fafafa';
+    ctx.fillRect(0, 0, W, H);
+
+    const toX = (nx: number) => pad + nx * drawW;
+    const toY = (ny: number) => pad + ny * drawH;
+
+    ctx.globalAlpha = 0.06;
+    ctx.strokeStyle = '#999';
+    ctx.lineWidth = 0.5;
+    for (const [src, dst] of graphLayout.edges) {
+      const a = graphLayout.nodes[src];
+      const b = graphLayout.nodes[dst];
+      if (!a || !b) continue;
+      ctx.beginPath();
+      ctx.moveTo(toX(a.x), toY(a.y));
+      ctx.lineTo(toX(b.x), toY(b.y));
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1.0;
+
+    for (const node of graphLayout.nodes) {
+      if (!node) continue;
+      const x = toX(node.x);
+      const y = toY(node.y);
+      const color = COMMUNITY_COLORS[node.community % COMMUNITY_COLORS.length];
+      const isHighlighted = graphHighlight === node.sampleId;
+      const isSelected = selectedPatient?.SAMPLE_ID === node.sampleId;
+
+      ctx.beginPath();
+      ctx.arc(x, y, isHighlighted || isSelected ? 5 : 2, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+
+      if (isSelected) {
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    }
+
+    const sizesEntries = Object.entries(graphLayout.communitySizes).sort(([, a], [, b]) => b - a);
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'left';
+    let ly = 14;
+    for (const [cid, size] of sizesEntries) {
+      const color = COMMUNITY_COLORS[parseInt(cid) % COMMUNITY_COLORS.length];
+      ctx.fillStyle = color;
+      ctx.fillRect(W - 140, ly - 8, 10, 10);
+      ctx.fillStyle = '#333';
+      ctx.fillText(`C${cid}: ${size} patients`, W - 125, ly);
+      ly += 16;
+    }
+    ctx.fillStyle = '#888';
+    ctx.font = '10px sans-serif';
+    ctx.fillText(`${graphLayout.nodes.length} nodes, ${graphLayout.edges.length} edges`, W - 140, ly + 4);
+    ctx.fillText(`Modularity: ${graphLayout.modularity}`, W - 140, ly + 18);
+  }, [graphLayout, graphHighlight, selectedPatient]);
+
+  useEffect(() => {
+    if (activeView === 'network' && graphLayout) {
+      requestAnimationFrame(drawGraph);
+    }
+  }, [activeView, graphLayout, drawGraph]);
+
+  const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!graphLayout || !canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const cx = mx * scaleX;
+    const cy = my * scaleY;
+    const pad = 40;
+    const drawW = canvas.width - pad * 2;
+    const drawH = canvas.height - pad * 2;
+
+    let closest: GraphLayoutNode | null = null;
+    let closestDist = Infinity;
+    for (const node of graphLayout.nodes) {
+      if (!node) continue;
+      const nx = pad + node.x * drawW;
+      const ny = pad + node.y * drawH;
+      const d = Math.sqrt((cx - nx) ** 2 + (cy - ny) ** 2);
+      if (d < closestDist && d < 15) {
+        closestDist = d;
+        closest = node;
+      }
+    }
+    if (closest) {
+      setGraphHighlight(closest.sampleId);
+      const p = patients.find(pt => pt.SAMPLE_ID === closest!.sampleId);
+      if (p) handlePatientSelect(p);
+    }
+  }, [graphLayout, patients]);
+
+  const handleCanvasMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!graphLayout || !canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+    const my = (e.clientY - rect.top) * (canvas.height / rect.height);
+    const pad = 40;
+    const drawW = canvas.width - pad * 2;
+    const drawH = canvas.height - pad * 2;
+
+    let found: GraphLayoutNode | null = null;
+    for (const node of graphLayout.nodes) {
+      if (!node) continue;
+      const nx = pad + node.x * drawW;
+      const ny = pad + node.y * drawH;
+      if (Math.sqrt((mx - nx) ** 2 + (my - ny) ** 2) < 8) {
+        found = node;
+        break;
+      }
+    }
+    canvas.style.cursor = found ? 'pointer' : 'default';
+    canvas.title = found ? `${found.patientName} (${found.sampleId})\n${found.superpopulation} — Community #${found.community}` : '';
+  }, [graphLayout]);
 
   const filteredPatients = patients.filter(p =>
     p.PATIENT_NAME.toLowerCase().includes(patientSearch.toLowerCase()) ||
@@ -230,6 +392,64 @@ export default function VariantSimilarityScreen() {
         </View>
       )}
 
+      {!selectedPatient && !isLoadingSimilar && (
+        <View style={styles.section}>
+          <TouchableOpacity style={styles.networkMapBtn} onPress={loadGraphLayout}>
+            <Ionicons name="git-network" size={20} color="#fff" />
+            <Text style={styles.networkMapBtnText}>View Cohort Network Map</Text>
+          </TouchableOpacity>
+          <Text style={styles.networkMapHint}>Explore the full patient similarity graph with Louvain communities</Text>
+        </View>
+      )}
+
+      {activeView === 'network' && !selectedPatient && isLoadingGraph && (
+        <View style={styles.loadingBox}>
+          <ActivityIndicator size="large" color="#6C5CE7" />
+          <Text style={styles.loadingText}>Computing graph layout on GPU...</Text>
+          <Text style={styles.loadingSubtext}>Force-directed layout for 3,192 patients (force_atlas2)</Text>
+        </View>
+      )}
+
+      {activeView === 'network' && !selectedPatient && graphLayout && !isLoadingGraph && Platform.OS === 'web' && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            <Ionicons name="git-network" size={16} color="#6C5CE7" /> Cohort Similarity Network
+          </Text>
+          <View style={styles.graphStats}>
+            <View style={styles.graphStat}>
+              <Text style={styles.graphStatValue}>{graphLayout.nodes.length.toLocaleString()}</Text>
+              <Text style={styles.graphStatLabel}>Patients</Text>
+            </View>
+            <View style={styles.graphStat}>
+              <Text style={styles.graphStatValue}>{graphLayout.edges.length.toLocaleString()}</Text>
+              <Text style={styles.graphStatLabel}>Edges Shown</Text>
+            </View>
+            <View style={styles.graphStat}>
+              <Text style={styles.graphStatValue}>{graphLayout.communities}</Text>
+              <Text style={styles.graphStatLabel}>Communities</Text>
+            </View>
+            <View style={styles.graphStat}>
+              <Text style={styles.graphStatValue}>{graphLayout.modularity}</Text>
+              <Text style={styles.graphStatLabel}>Modularity</Text>
+            </View>
+          </View>
+          <View style={styles.canvasContainer}>
+            <canvas
+              ref={(el: HTMLCanvasElement | null) => {
+                canvasRef.current = el;
+                if (el) requestAnimationFrame(drawGraph);
+              }}
+              width={900}
+              height={700}
+              style={{ width: '100%', height: 'auto', borderRadius: 8, border: '1px solid #eee', cursor: 'crosshair' } as any}
+              onClick={handleCanvasClick as any}
+              onMouseMove={handleCanvasMove as any}
+            />
+          </View>
+          <Text style={styles.graphHint}>Click a node to select that patient. Hover for details.</Text>
+        </View>
+      )}
+
       {isLoadingSimilar && (
         <View style={styles.loadingBox}>
           <ActivityIndicator size="large" color="#6C5CE7" />
@@ -269,14 +489,21 @@ export default function VariantSimilarityScreen() {
               onPress={() => setActiveView('similar')}
             >
               <Ionicons name="git-compare" size={16} color={activeView === 'similar' ? '#fff' : '#6C5CE7'} />
-              <Text style={[styles.tabBtnText, activeView === 'similar' && styles.tabBtnTextActive]}>Similar Patients</Text>
+              <Text style={[styles.tabBtnText, activeView === 'similar' && styles.tabBtnTextActive]}>Similar</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.tabBtn, activeView === 'community' && styles.tabBtnActive]}
               onPress={() => communityId !== null && loadCommunity(communityId)}
             >
               <Ionicons name="people" size={16} color={activeView === 'community' ? '#fff' : '#6C5CE7'} />
-              <Text style={[styles.tabBtnText, activeView === 'community' && styles.tabBtnTextActive]}>Community Profile</Text>
+              <Text style={[styles.tabBtnText, activeView === 'community' && styles.tabBtnTextActive]}>Community</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tabBtn, activeView === 'network' && styles.tabBtnActive]}
+              onPress={loadGraphLayout}
+            >
+              <Ionicons name="git-network" size={16} color={activeView === 'network' ? '#fff' : '#6C5CE7'} />
+              <Text style={[styles.tabBtnText, activeView === 'network' && styles.tabBtnTextActive]}>Network Map</Text>
             </TouchableOpacity>
           </View>
 
@@ -399,6 +626,54 @@ export default function VariantSimilarityScreen() {
               </View>
             </View>
           )}
+
+          {activeView === 'network' && isLoadingGraph && (
+            <View style={styles.loadingBox}>
+              <ActivityIndicator size="large" color="#6C5CE7" />
+              <Text style={styles.loadingText}>Computing graph layout on GPU...</Text>
+              <Text style={styles.loadingSubtext}>Force-directed layout for 3,192 patients (force_atlas2)</Text>
+            </View>
+          )}
+
+          {activeView === 'network' && graphLayout && !isLoadingGraph && Platform.OS === 'web' && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>
+                <Ionicons name="git-network" size={16} color="#6C5CE7" /> Cohort Similarity Network
+              </Text>
+              <View style={styles.graphStats}>
+                <View style={styles.graphStat}>
+                  <Text style={styles.graphStatValue}>{graphLayout.nodes.length.toLocaleString()}</Text>
+                  <Text style={styles.graphStatLabel}>Patients</Text>
+                </View>
+                <View style={styles.graphStat}>
+                  <Text style={styles.graphStatValue}>{graphLayout.edges.length.toLocaleString()}</Text>
+                  <Text style={styles.graphStatLabel}>Edges Shown</Text>
+                </View>
+                <View style={styles.graphStat}>
+                  <Text style={styles.graphStatValue}>{graphLayout.communities}</Text>
+                  <Text style={styles.graphStatLabel}>Communities</Text>
+                </View>
+                <View style={styles.graphStat}>
+                  <Text style={styles.graphStatValue}>{graphLayout.modularity}</Text>
+                  <Text style={styles.graphStatLabel}>Modularity</Text>
+                </View>
+              </View>
+              <View style={styles.canvasContainer}>
+                <canvas
+                  ref={(el: HTMLCanvasElement | null) => {
+                    canvasRef.current = el;
+                    if (el) requestAnimationFrame(drawGraph);
+                  }}
+                  width={900}
+                  height={700}
+                  style={{ width: '100%', height: 'auto', borderRadius: 8, border: '1px solid #eee', cursor: 'crosshair' } as any}
+                  onClick={handleCanvasClick as any}
+                  onMouseMove={handleCanvasMove as any}
+                />
+              </View>
+              <Text style={styles.graphHint}>Click a node to select that patient. Hover for details.</Text>
+            </View>
+          )}
         </>
       )}
 
@@ -481,4 +756,13 @@ const styles = StyleSheet.create({
   memberText: { fontSize: 11, color: '#333' },
   backendBadge: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginBottom: 8, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, alignSelf: 'flex-start' },
   backendText: { fontSize: 11, fontWeight: '700', marginLeft: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
+  graphStats: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#eee', marginBottom: 12 },
+  graphStat: { alignItems: 'center' },
+  graphStatValue: { fontSize: 18, fontWeight: '700', color: '#6C5CE7' },
+  graphStatLabel: { fontSize: 10, color: '#999', marginTop: 2 },
+  canvasContainer: { borderRadius: 8, overflow: 'hidden', marginVertical: 8 },
+  graphHint: { fontSize: 11, color: '#999', textAlign: 'center', marginTop: 4, fontStyle: 'italic' },
+  networkMapBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#6C5CE7', paddingVertical: 14, borderRadius: 10 },
+  networkMapBtnText: { color: '#fff', fontSize: 15, fontWeight: '700', marginLeft: 8 },
+  networkMapHint: { fontSize: 12, color: '#999', textAlign: 'center', marginTop: 8 },
 });

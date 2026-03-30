@@ -141,6 +141,30 @@ def run_pagerank(G, top_n=20):
     return pr_pdf
 
 
+def compute_layout(G, edge_df, n_nodes):
+    logger.info(f"Computing force-directed layout for {n_nodes} nodes...")
+    try:
+        pos = cugraph.force_atlas2(G, max_iter=500, scaling_ratio=5.0, gravity=1.0)
+        pos_pdf = pos.to_pandas().sort_values('vertex').reset_index(drop=True)
+        xs = pos_pdf['x'].values.astype(float)
+        ys = pos_pdf['y'].values.astype(float)
+    except Exception as e:
+        logger.warning(f"force_atlas2 failed ({e}), using spectral fallback")
+        np.random.seed(42)
+        xs = np.random.randn(n_nodes).astype(float)
+        ys = np.random.randn(n_nodes).astype(float)
+
+    x_min, x_max = xs.min(), xs.max()
+    y_min, y_max = ys.min(), ys.max()
+    x_range = max(x_max - x_min, 1e-6)
+    y_range = max(y_max - y_min, 1e-6)
+    xs = (xs - x_min) / x_range
+    ys = (ys - y_min) / y_range
+
+    logger.info("Layout computed and normalized to [0,1]")
+    return {"x": xs.tolist(), "y": ys.tolist()}
+
+
 @app.on_event("startup")
 async def startup():
     logger.info("Starting cuGraph Variant Similarity service...")
@@ -168,6 +192,9 @@ async def startup():
         GRAPH_CACHE['louvain'] = louvain_parts
         GRAPH_CACHE['modularity'] = modularity
         GRAPH_CACHE['pagerank'] = pagerank_df
+
+        layout_pos = compute_layout(G, edge_df, len(samples))
+        GRAPH_CACHE['layout'] = layout_pos
         logger.info("Startup complete — graph cached.")
     except Exception as e:
         logger.error(f"Startup failed: {e}", exc_info=True)
@@ -449,6 +476,101 @@ async def service_similar(request: Request):
                 "communities": int(GRAPH_CACHE['louvain']['partition'].nunique()),
                 "modularity": round(GRAPH_CACHE['modularity'], 4),
             }
+        }
+        results.append([row_idx, json.dumps(result)])
+
+    return {"data": results}
+
+
+@app.api_route("/api/graph/layout", methods=["GET", "POST"])
+async def graph_layout(max_edges: int = Query(default=5000)):
+    if 'layout' not in GRAPH_CACHE:
+        raise HTTPException(503, "Layout not ready")
+
+    layout = GRAPH_CACHE['layout']
+    samples = GRAPH_CACHE['samples']
+    louvain = GRAPH_CACHE['louvain']
+    meta = GRAPH_CACHE['patient_meta']
+    edge_df = GRAPH_CACHE['edge_df']
+
+    community_map = {}
+    for _, row in louvain.iterrows():
+        community_map[int(row['vertex'])] = int(row['partition'])
+
+    nodes = []
+    for i, sid in enumerate(samples):
+        m = meta.loc[sid] if sid in meta.index else {}
+        nodes.append({
+            "i": i,
+            "x": round(layout['x'][i], 5),
+            "y": round(layout['y'][i], 5),
+            "c": community_map.get(i, -1),
+            "s": sid,
+            "n": str(m.get('PATIENT_NAME', '')) if isinstance(m, pd.Series) else '',
+            "p": str(m.get('SUPERPOPULATION', '')) if isinstance(m, pd.Series) else '',
+        })
+
+    edf = edge_df.to_pandas().nlargest(max_edges, 'weight')
+    edges = [[int(r['src']), int(r['dst']), round(float(r['weight']), 3)] for _, r in edf.iterrows()]
+
+    community_sizes = louvain['partition'].value_counts().to_dict()
+
+    return {
+        "nodes": nodes,
+        "edges": edges,
+        "communities": len(community_sizes),
+        "community_sizes": {str(k): int(v) for k, v in sorted(community_sizes.items())},
+        "modularity": round(GRAPH_CACHE['modularity'], 4),
+    }
+
+
+@app.post("/api/service/graph_layout")
+async def service_graph_layout(request: Request):
+    body = await request.json()
+    rows = body.get("data", [])
+    results = []
+    for row in rows:
+        row_idx = row[0]
+        max_edges = int(row[1]) if len(row) > 1 else 5000
+
+        if 'layout' not in GRAPH_CACHE:
+            results.append([row_idx, json.dumps({"error": "Layout not ready"})])
+            continue
+
+        layout = GRAPH_CACHE['layout']
+        samples = GRAPH_CACHE['samples']
+        louvain = GRAPH_CACHE['louvain']
+        meta = GRAPH_CACHE['patient_meta']
+        edge_df = GRAPH_CACHE['edge_df']
+
+        community_map = {}
+        for _, row_l in louvain.iterrows():
+            community_map[int(row_l['vertex'])] = int(row_l['partition'])
+
+        nodes = []
+        for i, sid in enumerate(samples):
+            m = meta.loc[sid] if sid in meta.index else {}
+            nodes.append([
+                round(layout['x'][i], 4),
+                round(layout['y'][i], 4),
+                community_map.get(i, -1),
+                sid,
+                str(m.get('PATIENT_NAME', '')) if isinstance(m, pd.Series) else '',
+                str(m.get('SUPERPOPULATION', '')) if isinstance(m, pd.Series) else '',
+            ])
+
+        edf = edge_df.to_pandas().nlargest(max_edges, 'weight')
+        edges = [[int(r['src']), int(r['dst']), round(float(r['weight']), 3)] for _, r in edf.iterrows()]
+
+        community_sizes = louvain['partition'].value_counts().to_dict()
+
+        result = {
+            "nodes": nodes,
+            "edges": edges,
+            "communities": len(community_sizes),
+            "community_sizes": {str(k): int(v) for k, v in sorted(community_sizes.items())},
+            "modularity": round(GRAPH_CACHE['modularity'], 4),
+            "backend": "cugraph_gpu",
         }
         results.append([row_idx, json.dumps(result)])
 
