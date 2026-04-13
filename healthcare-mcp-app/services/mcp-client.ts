@@ -2,6 +2,47 @@ import { MCPRequest, MCPResponse, MCPTool, ToolCallResult } from '@/types/mcp';
 
 const SNOWFLAKE_API_BASE = 'https://sfsehol-si_industry_demos_healthcare_lmszks.snowflakecomputing.com';
 
+const ALLOWED_PROCEDURES: RegExp[] = [
+  /\bCALL\s+(HEALTHCARE_DATABASE\.DEFAULT_SCHEMA\.(GET_PATIENT_CLINICAL_PROFILE|SCAN_PHARMACOGENOMIC_VARIANTS|CALL_NEO_RESEARCH_AGENT)|TRE_HEALTHCARE_DB\.FHIR_STAGING\.SAVE_ENCOUNTER_NOTE|TRE_HEALTHCARE_DB\.MS_FIMR\.GET_CARE_COORDINATION_SUMMARY)\b/i,
+];
+
+const BLOCKED_SQL_PATTERNS: RegExp[] = [
+  /\b(INSERT\s+INTO|INSERT\s+OVERWRITE)\b/i,
+  /\b(UPDATE\s+\w)\b/i,
+  /\b(DELETE\s+FROM)\b/i,
+  /\b(MERGE\s+INTO)\b/i,
+  /\b(DROP\s+(TABLE|VIEW|SCHEMA|DATABASE|WAREHOUSE|ROLE|USER|STAGE|PIPE|STREAM|TASK|FUNCTION|PROCEDURE|MCP))\b/i,
+  /\b(CREATE\s+(OR\s+REPLACE\s+)?(TABLE|VIEW|SCHEMA|DATABASE|WAREHOUSE|ROLE|USER|STAGE|PIPE|STREAM|TASK|FUNCTION|PROCEDURE|MCP))\b/i,
+  /\b(ALTER\s+(TABLE|VIEW|SCHEMA|DATABASE|WAREHOUSE|ROLE|USER|STAGE|PIPE|STREAM|TASK|FUNCTION|PROCEDURE))\b/i,
+  /\b(TRUNCATE\s+TABLE)\b/i,
+  /\b(GRANT\s+\w)\b/i,
+  /\b(REVOKE\s+\w)\b/i,
+  /\b(COPY\s+INTO)\b/i,
+  /\b(PUT\s+)\b/i,
+  /\b(REMOVE\s+@)\b/i,
+  /\b(CALL\s+)\b/i,
+  /\b(EXECUTE\s+)\b/i,
+];
+
+export interface SQLValidationResult {
+  safe: boolean;
+  blockedPattern?: string;
+  sql: string;
+}
+
+export function validateSQL(sql: string): SQLValidationResult {
+  const trimmed = sql.replace(/--.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').trim();
+  if (ALLOWED_PROCEDURES.some(pattern => pattern.test(trimmed))) {
+    return { safe: true, sql };
+  }
+  for (const pattern of BLOCKED_SQL_PATTERNS) {
+    if (pattern.test(trimmed)) {
+      return { safe: false, blockedPattern: pattern.source, sql };
+    }
+  }
+  return { safe: true, sql };
+}
+
 function getBaseUrl(): string {
   if (typeof window !== 'undefined' && window.location.hostname.endsWith('.snowflakecomputing.app')) {
     return '';
@@ -57,6 +98,11 @@ export class MCPClient {
   }
 
   async executeSQL(sql: string, timeout: number = 30): Promise<Record<string, unknown>[]> {
+    const validation = validateSQL(sql);
+    if (!validation.safe) {
+      throw new Error(`SQL blocked by guardrail: statement matches disallowed pattern (${validation.blockedPattern}). Only SELECT queries are permitted.`);
+    }
+
     const response = await fetch(getSqlEndpoint(), {
       method: 'POST',
       headers: {

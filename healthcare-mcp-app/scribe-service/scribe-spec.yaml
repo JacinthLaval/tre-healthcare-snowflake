@@ -1,0 +1,27 @@
+spec:
+  containers:
+    - name: scribe
+      image: /healthcare_database/default_schema/fhir_ingestion_repo/ambient-scribe:latest
+      resources:
+        requests:
+          nvidia.com/gpu: 1
+          memory: 12Gi
+          cpu: 4
+        limits:
+          nvidia.com/gpu: 1
+          memory: 14Gi
+          cpu: 8
+      env:
+        WHISPER_MODEL: large-v3
+        USE_GPU: "true"
+      volumeMounts:
+        - name: model-cache
+          mountPath: /models
+  endpoints:
+    - name: scribe
+      port: 8080
+      public: true
+  volumes:
+    - name: model-cache
+      source: memory
+      size: 8Gi

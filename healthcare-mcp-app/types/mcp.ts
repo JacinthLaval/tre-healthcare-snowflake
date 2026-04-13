@@ -39,5 +39,7 @@ export interface ChatMessage {
   toolName?: string;
   sql?: string;
   data?: Record<string, unknown>[];
+  sqlPending?: boolean;
+  sqlBlocked?: boolean;
   timestamp: Date;
 }

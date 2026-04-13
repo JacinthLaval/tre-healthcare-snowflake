@@ -1,0 +1,20 @@
+FROM node:20-alpine AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+FROM python:3.12-slim
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends nginx && \
+    rm -rf /var/lib/apt/lists/* && \
+    pip install --no-cache-dir flask snowflake-connector-python psycopg2-binary
+COPY --from=build /app/dist /var/www/html
+COPY nginx.conf.template /etc/nginx/conf.d/default.conf
+COPY backend.py /app/backend.py
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+RUN rm -f /etc/nginx/sites-enabled/default
+EXPOSE 8080
+ENTRYPOINT ["/entrypoint.sh"]

@@ -16,11 +16,13 @@ import { ChatMessage } from '@/types/mcp';
 interface ChatInterfaceProps {
   messages: ChatMessage[];
   onSendMessage: (text: string) => void;
+  onConfirmSQL?: (messageId: string) => void;
+  onRejectSQL?: (messageId: string) => void;
   isLoading: boolean;
   placeholder?: string;
 }
 
-export function ChatInterface({ messages, onSendMessage, isLoading, placeholder }: ChatInterfaceProps) {
+export function ChatInterface({ messages, onSendMessage, onConfirmSQL, onRejectSQL, isLoading, placeholder }: ChatInterfaceProps) {
   const [inputText, setInputText] = useState('');
   const flatListRef = useRef<FlatList>(null);
 
@@ -60,8 +62,24 @@ export function ChatInterface({ messages, onSendMessage, isLoading, placeholder 
       )}
       {item.sql && (
         <View style={styles.sqlContainer}>
-          <Text style={styles.sqlLabel}>🔍 SQL Query</Text>
+          <Text style={styles.sqlLabel}>{item.sqlBlocked ? '🛡️ SQL Blocked by Guardrail' : item.sqlPending ? '⏳ SQL Awaiting Approval' : '🔍 SQL Query'}</Text>
           <Text style={styles.sqlText}>{item.sql}</Text>
+          {item.sqlPending && (
+            <View style={styles.sqlActions}>
+              <TouchableOpacity
+                style={styles.sqlApproveBtn}
+                onPress={() => onConfirmSQL?.(item.id)}
+              >
+                <Text style={styles.sqlBtnText}>Execute</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.sqlRejectBtn}
+                onPress={() => onRejectSQL?.(item.id)}
+              >
+                <Text style={styles.sqlRejectBtnText}>Reject</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       )}
     </View>
@@ -265,5 +283,34 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: '#ccc',
+  },
+  sqlActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+  },
+  sqlApproveBtn: {
+    backgroundColor: '#10B981',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+  },
+  sqlRejectBtn: {
+    backgroundColor: '#fff',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#EF4444',
+  },
+  sqlBtnText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  sqlRejectBtnText: {
+    color: '#EF4444',
+    fontWeight: '600',
+    fontSize: 13,
   },
 });

@@ -17,6 +17,36 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
+        name="patient"
+        options={{
+          title: 'Patient',
+          headerTitle: 'Patient Presents',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="scribe"
+        options={{
+          title: 'Scribe',
+          headerTitle: 'Ambient Scribe',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="mic" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="omop"
+        options={{
+          title: 'Population',
+          headerTitle: 'Population Health',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="people" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="er-console"
         options={{
           title: 'ER Console',
@@ -37,12 +67,12 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="omop"
+        name="platform"
         options={{
-          title: 'TRE/OMOP',
-          headerTitle: 'OMOP CDM',
+          title: 'Platform',
+          headerTitle: 'Snowflake Platform',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people" size={size} color={color} />
+            <Ionicons name="shield-checkmark" size={size} color={color} />
           ),
         }}
       />
