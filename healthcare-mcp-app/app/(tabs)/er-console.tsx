@@ -113,6 +113,7 @@ export default function ERConsoleScreen() {
   const [showAllConditions, setShowAllConditions] = useState(false);
   const [showAllMedications, setShowAllMedications] = useState(false);
   const [patientSearch, setPatientSearch] = useState('');
+  const getActiveRole = () => Platform.OS === 'web' ? (localStorage.getItem('snowflake_active_role') || undefined) : undefined;
 
   useEffect(() => {
     const client = getMCPClient();
@@ -149,7 +150,7 @@ export default function ERConsoleScreen() {
           CASE WHEN SAMPLE_ID IN ('HG03163','NA19790','HG00864','HG01162','HG01597','HG00233','HG01396','NA19648') THEN 0 ELSE 1 END,
           PATIENT_NAME
         LIMIT 50
-      `);
+      `, 30, getActiveRole());
       setPatients(data as Patient[]);
     } catch (error) {
       console.error('Failed to load patients:', error);
@@ -164,7 +165,7 @@ export default function ERConsoleScreen() {
       const client = getMCPClient();
       if (!client) return;
       const data = await client.executeSQL(
-        `CALL HEALTHCARE_DATABASE.DEFAULT_SCHEMA.GET_PATIENT_CLINICAL_PROFILE('${sampleId}')`
+        `CALL HEALTHCARE_DATABASE.DEFAULT_SCHEMA.GET_PATIENT_CLINICAL_PROFILE('${sampleId}')`, 30, getActiveRole()
       );
       if (data && data[0]) {
         const profileJson = Object.values(data[0])[0];
@@ -187,7 +188,7 @@ export default function ERConsoleScreen() {
       const client = getMCPClient();
       if (!client) return;
       const data = await client.executeSQL(
-        `CALL HEALTHCARE_DATABASE.DEFAULT_SCHEMA.SCAN_PHARMACOGENOMIC_VARIANTS('${sampleId}', '${diagnosis}')`
+        `CALL HEALTHCARE_DATABASE.DEFAULT_SCHEMA.SCAN_PHARMACOGENOMIC_VARIANTS('${sampleId}', '${diagnosis}')`, 30, getActiveRole()
       );
       if (data && data[0]) {
         const resultJson = Object.values(data[0])[0];
@@ -364,7 +365,7 @@ Search ClinicalTrials.gov and PubMed to support both scenarios with real evidenc
 
       const escapedQuery = query.replace(/'/g, "''");
       const data = await client.executeSQL(
-        `CALL HEALTHCARE_DATABASE.DEFAULT_SCHEMA.CALL_NEO_RESEARCH_AGENT('${escapedQuery}')`, 0
+        `CALL HEALTHCARE_DATABASE.DEFAULT_SCHEMA.CALL_NEO_RESEARCH_AGENT('${escapedQuery}')`, 0, getActiveRole()
       );
       if (data && data[0]) {
         const response = Object.values(data[0])[0] as string;
@@ -415,8 +416,19 @@ Search ClinicalTrials.gov and PubMed to support both scenarios with real evidenc
     return groups;
   };
 
+  const currentRole = Platform.OS === 'web' ? (localStorage.getItem('snowflake_active_role') || 'ACCOUNTADMIN') : 'ACCOUNTADMIN';
+  const isMaskedRole = !['CLINICAL_RESEARCHER', 'TRE_ADMIN', 'ACCOUNTADMIN', 'SYSADMIN'].includes(currentRole);
+
   return (
     <ScrollView style={styles.container}>
+      {currentRole !== 'ACCOUNTADMIN' && (
+        <View style={[styles.roleBanner, { backgroundColor: isMaskedRole ? '#FFF3E0' : '#E8F5E9' }]}>
+          <Ionicons name={isMaskedRole ? 'eye-off' : 'eye'} size={16} color={isMaskedRole ? '#E67E22' : '#27AE60'} />
+          <Text style={[styles.roleBannerText, { color: isMaskedRole ? '#E67E22' : '#27AE60' }]}>
+            {currentRole.replace(/_/g, ' ')} {isMaskedRole ? '— PHI is masked' : '— Full PHI access'}
+          </Text>
+        </View>
+      )}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>
           <Ionicons name="person" size={18} color="#29B5E8" /> Select Patient
@@ -809,6 +821,8 @@ Search ClinicalTrials.gov and PubMed to support both scenarios with real evidenc
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
+  roleBanner: { flexDirection: 'row', alignItems: 'center', padding: 10, marginHorizontal: 12, marginTop: 12, borderRadius: 8, gap: 8 },
+  roleBannerText: { fontSize: 13, fontWeight: '700' },
   section: { backgroundColor: '#fff', margin: 12, padding: 16, borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
   sectionTitle: { fontSize: 16, fontWeight: '600', color: '#333', marginBottom: 12 },
   patientSelector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, backgroundColor: '#fafafa' },

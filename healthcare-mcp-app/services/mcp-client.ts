@@ -97,7 +97,7 @@ export class MCPClient {
     return data.result as T;
   }
 
-  async executeSQL(sql: string, timeout: number = 30): Promise<Record<string, unknown>[]> {
+  async executeSQL(sql: string, timeout: number = 30, role?: string): Promise<Record<string, unknown>[]> {
     const validation = validateSQL(sql);
     if (!validation.safe) {
       throw new Error(`SQL blocked by guardrail: statement matches disallowed pattern (${validation.blockedPattern}). Only SELECT queries are permitted.`);
@@ -116,6 +116,7 @@ export class MCPClient {
         database: 'TRE_HEALTHCARE_DB',
         schema: 'OMOP_CDM',
         warehouse: 'COMPUTE_WH',
+        ...(role ? { role } : {}),
       }),
     });
 

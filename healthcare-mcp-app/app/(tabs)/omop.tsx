@@ -65,6 +65,8 @@ interface CoordinationRow {
 }
 
 export default function OmopScreen() {
+  const getActiveRole = () => Platform.OS === 'web' ? (localStorage.getItem('snowflake_active_role') || undefined) : undefined;
+
   const [activeTab, setActiveTab] = useState<SubTab>('population');
   const [census, setCensus] = useState<CensusData | null>(null);
   const [conditions, setConditions] = useState<ConditionRow[]>([]);
@@ -149,7 +151,7 @@ export default function OmopScreen() {
     try {
       const client = getMCPClient();
       if (!client) throw new Error('Not connected');
-      const data = await client.executeSQL(sql);
+      const data = await client.executeSQL(sql, 30, getActiveRole());
       setMessages((prev) => prev.map((m) => m.id === messageId ? { ...m, data } : m));
     } catch (err) {
       setMessages((prev) => prev.map((m) => m.id === messageId

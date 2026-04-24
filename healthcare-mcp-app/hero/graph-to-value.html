@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>From Graphs to Guidance — How We Turned Genomic Connections into Actionable Patient Alerts</title>
+<style>
+  :root {
+    --sf-blue: #1B4F72;
+    --sf-accent: #29B5E8;
+    --gold: #d4a017;
+    --red: #DC2626;
+    --orange: #D97706;
+    --green: #27AE60;
+    --warm: #E67E22;
+    --teal: #16a085;
+    --purple: #7C3AED;
+    --bg: #FAFBFC;
+    --card: #FFFFFF;
+    --text: #2C3E50;
+    --muted: #7F8C8D;
+    --border: #E0E0E0;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; }
+
+  .hero {
+    background: linear-gradient(135deg, #1B4F72 0%, #1a3c5e 40%, #29B5E8 100%);
+    color: white; padding: 72px 40px 56px; text-align: center; position: relative; overflow: hidden;
+  }
+  .hero::after {
+    content: ''; position: absolute; bottom: -2px; left: 0; right: 0; height: 50px;
+    background: var(--bg); clip-path: ellipse(55% 100% at 50% 100%);
+  }
+  .hero h1 { font-size: 2.6em; font-weight: 300; letter-spacing: -0.5px; margin-bottom: 10px; }
+  .hero h1 strong { font-weight: 700; }
+  .hero .subtitle { font-size: 1.15em; opacity: 0.92; max-width: 780px; margin: 0 auto 20px; font-style: italic; }
+  .hero .badges { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .hero .badge {
+    background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 20px; padding: 5px 16px; font-size: 0.82em; backdrop-filter: blur(4px);
+  }
+
+  .container { max-width: 1020px; margin: 0 auto; padding: 0 24px; }
+  section { padding: 48px 0; }
+  section + section { border-top: 1px solid var(--border); }
+
+  h2 {
+    font-size: 1.55em; color: var(--sf-blue); margin-bottom: 16px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  h2 .icon { font-size: 1.1em; }
+  h3 { font-size: 1.15em; color: var(--sf-blue); margin: 24px 0 10px; }
+  p { margin-bottom: 14px; }
+
+  .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin: 20px 0; }
+  .stat-box {
+    background: var(--card); border-radius: 10px; padding: 20px; text-align: center;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.06); border: 1px solid var(--border);
+  }
+  .stat-box .number { font-size: 2.1em; font-weight: 800; line-height: 1.1; }
+  .stat-box .number.red { color: var(--red); }
+  .stat-box .number.green { color: var(--green); }
+  .stat-box .number.gold { color: var(--gold); }
+  .stat-box .number.blue { color: var(--sf-accent); }
+  .stat-box .number.purple { color: var(--purple); }
+  .stat-box .number.orange { color: var(--orange); }
+  .stat-box .label { font-size: 0.82em; color: var(--muted); margin-top: 4px; }
+
+  .callout {
+    border-left: 4px solid var(--sf-accent); background: linear-gradient(135deg, #EBF5FB, #D4EFDF);
+    border-radius: 0 8px 8px 0; padding: 18px 22px; margin: 20px 0; font-size: 0.95em;
+  }
+  .callout strong { color: var(--sf-blue); }
+  .callout.gold { border-left-color: var(--gold); background: #fef9e7; }
+  .callout.red { border-left-color: var(--red); background: #fdedec; }
+  .callout.green { border-left-color: var(--green); background: #eafaf1; }
+  .callout.teal { border-left-color: var(--teal); background: #e8f8f5; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0; }
+  .card {
+    background: var(--card); border-radius: 10px; padding: 24px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.06); border: 1px solid var(--border);
+  }
+  .card h3 { margin-top: 0; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.88em; margin: 16px 0; }
+  th { background: var(--sf-blue); color: white; font-weight: 600; text-align: left; padding: 10px 14px; }
+  td { padding: 9px 14px; border-bottom: 1px solid var(--border); }
+  tr:nth-child(even) { background: #f7f9fc; }
+
+  .pillar-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 20px 0; }
+  .pillar {
+    background: var(--card); border-radius: 10px; padding: 20px; text-align: center;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.06); border-top: 4px solid var(--sf-blue);
+  }
+  .pillar .icon { font-size: 2em; margin-bottom: 8px; }
+  .pillar h4 { color: var(--sf-blue); margin-bottom: 6px; font-size: 0.95em; }
+  .pillar p { font-size: 0.84em; color: #555; margin-bottom: 0; }
+
+  .pipeline-steps { display: flex; gap: 0; align-items: stretch; margin: 24px 0; flex-wrap: wrap; }
+  .pipeline-step {
+    flex: 1; min-width: 120px; background: var(--card); border: 1px solid var(--border);
+    padding: 16px 12px; text-align: center; position: relative;
+  }
+  .pipeline-step:first-child { border-radius: 10px 0 0 10px; }
+  .pipeline-step:last-child { border-radius: 0 10px 10px 0; }
+  .pipeline-step .step-icon { font-size: 1.6em; margin-bottom: 6px; }
+  .pipeline-step .step-title { font-weight: 700; font-size: 0.8em; color: var(--sf-blue); }
+  .pipeline-step .step-desc { font-size: 0.72em; color: var(--muted); margin-top: 3px; }
+  .pipeline-step::after {
+    content: '\2192'; position: absolute; right: -11px; top: 50%; transform: translateY(-50%);
+    font-size: 1.1em; color: var(--sf-accent); z-index: 1; font-weight: bold;
+  }
+  .pipeline-step:last-child::after { display: none; }
+
+  .coco-section {
+    background: linear-gradient(135deg, #1B4F72, #29B5E8); color: white;
+    border-radius: 12px; padding: 36px; margin: 24px 0;
+  }
+  .coco-section h2 { color: white; }
+  .coco-section h3 { color: rgba(255,255,255,0.95); }
+  .coco-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin: 16px 0; }
+  .coco-item {
+    background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 8px; padding: 16px; backdrop-filter: blur(4px);
+  }
+  .coco-item .label { font-weight: 700; font-size: 0.9em; margin-bottom: 4px; }
+  .coco-item .desc { font-size: 0.82em; opacity: 0.85; }
+
+  blockquote {
+    font-style: italic; color: #555; border-left: 3px solid var(--sf-accent);
+    padding: 10px 18px; margin: 16px 0; background: #f8f9fa; font-size: 0.95em;
+  }
+  blockquote cite { display: block; margin-top: 6px; font-style: normal; font-weight: bold; color: var(--sf-blue); font-size: 0.85em; }
+
+  .cta {
+    background: linear-gradient(135deg, var(--sf-blue) 0%, #1a3c5e 100%);
+    color: white; padding: 40px; border-radius: 14px; text-align: center; margin: 32px 0;
+  }
+  .cta h2 { color: white; display: block; text-align: center; justify-content: center; }
+  .cta p { color: rgba(255,255,255,0.9); max-width: 700px; margin: 0 auto 14px; }
+
+  .footer {
+    background: var(--sf-blue); color: white; padding: 32px; text-align: center; font-size: 0.82em; margin-top: 32px;
+  }
+  .footer a { color: var(--sf-accent); }
+
+  /* ---- APP MOCKUP STYLES ---- */
+  .app-frame {
+    background: #1a1a2e; border-radius: 16px; overflow: hidden; margin: 24px 0;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3); border: 1px solid #333;
+  }
+  .app-titlebar {
+    background: #252540; padding: 10px 16px; display: flex; align-items: center; gap: 8px;
+  }
+  .app-dot { width: 12px; height: 12px; border-radius: 50%; }
+  .app-dot.r { background: #ff5f57; }
+  .app-dot.y { background: #ffbd2e; }
+  .app-dot.g { background: #28c840; }
+  .app-url {
+    flex: 1; text-align: center; font-size: 0.72em; color: rgba(255,255,255,0.5);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+  .app-body { background: #f5f5f5; padding: 20px; min-height: 400px; }
+
+  .mock-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .mock-header .dot { width: 18px; height: 18px; border-radius: 50%; background: #DC2626; display: flex; align-items: center; justify-content: center; font-size: 10px; color: white; font-weight: bold; }
+  .mock-header h4 { font-size: 16px; font-weight: 700; color: #333; margin: 0; }
+  .mock-subtitle { font-size: 11px; color: #888; margin-bottom: 6px; }
+  .mock-forge { display: inline-flex; align-items: center; gap: 4px; background: #FEF3C7; border-radius: 10px; padding: 3px 10px; font-size: 9px; font-weight: 700; color: #92400E; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+  .mock-forge::before { content: '\26A1'; }
+
+  .mock-summary-row { display: flex; gap: 8px; margin-bottom: 10px; }
+  .mock-summary-card { flex: 1; text-align: center; padding: 12px 8px; border-radius: 12px; border: 2px solid transparent; }
+  .mock-summary-card.high { background: #FEF2F2; }
+  .mock-summary-card.mod { background: #FFFBEB; }
+  .mock-summary-card.std { background: #EFF6FF; }
+  .mock-summary-card .val { font-size: 26px; font-weight: 800; }
+  .mock-summary-card .val.high { color: #DC2626; }
+  .mock-summary-card .val.mod { color: #D97706; }
+  .mock-summary-card .val.std { color: #2563EB; }
+  .mock-summary-card .lbl { font-size: 9px; font-weight: 700; color: #666; letter-spacing: 1px; margin-top: 2px; }
+
+  .mock-stats { display: flex; align-items: center; justify-content: center; background: #fff; border-radius: 12px; padding: 10px; margin-bottom: 10px; }
+  .mock-stat { flex: 1; text-align: center; }
+  .mock-stat .v { font-size: 18px; font-weight: 700; color: #333; }
+  .mock-stat .l { font-size: 9px; color: #999; }
+  .mock-stat-div { width: 1px; height: 28px; background: #eee; }
+
+  .mock-toggle { display: flex; background: #FEF2F2; border-radius: 10px; padding: 3px; margin-bottom: 12px; }
+  .mock-toggle-btn { flex: 1; text-align: center; padding: 8px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: default; }
+  .mock-toggle-btn.active { background: #DC2626; color: #fff; }
+  .mock-toggle-btn.inactive { color: #DC2626; }
+
+  .mock-heatmap { background: #fff; border-radius: 12px; padding: 16px; }
+  .mock-hm-title { font-size: 14px; font-weight: 600; color: #333; margin-bottom: 10px; }
+  .hm-grid { display: grid; grid-template-columns: 110px repeat(5, 55px) 55px; gap: 2px; font-size: 11px; }
+  .hm-cell { display: flex; align-items: center; justify-content: center; height: 38px; border-radius: 4px; font-weight: 600; }
+  .hm-header { font-weight: 700; color: #333; font-size: 10px; }
+  .hm-label { justify-content: flex-start; gap: 4px; font-weight: 500; color: #333; font-size: 11px; }
+  .hm-badge { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 18px; border-radius: 5px; font-size: 9px; font-weight: 800; }
+  .hm-hot { background: #DC2626; color: #fff; }
+  .hm-warm { background: #F59E0B; color: #333; }
+  .hm-mild { background: #FBBF24; color: #333; }
+  .hm-cool { background: #FEF3C7; color: #333; }
+  .hm-none { background: #f9fafb; color: #ccc; }
+  .hm-total { background: #f3f4f6; font-weight: 700; }
+
+  .mock-alert-card { padding: 12px; background: #fafafa; border-radius: 10px; margin-bottom: 8px; border: 1px solid #eee; border-left: 4px solid; }
+  .mock-alert-card.high { border-left-color: #DC2626; }
+  .mock-alert-card.mod { border-left-color: #D97706; }
+  .mock-alert-card.std { border-left-color: #2563EB; }
+  .mock-alert-top { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+  .mock-alert-name { font-size: 14px; font-weight: 600; color: #333; }
+  .mock-priority-badge { padding: 1px 8px; border-radius: 10px; font-size: 9px; font-weight: 700; letter-spacing: 0.5px; }
+  .mock-alert-meta { display: flex; gap: 6px; align-items: center; font-size: 10px; color: #888; margin-bottom: 6px; }
+  .mock-chip { padding: 1px 6px; border-radius: 6px; font-size: 9px; font-weight: 700; }
+  .mock-action { padding: 8px 10px; border-radius: 8px; font-size: 11px; font-weight: 500; line-height: 1.5; }
+
+  .anc-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 2px; }
+
+  @media (max-width: 768px) {
+    .two-col, .pillar-grid { grid-template-columns: 1fr; }
+    .hero h1 { font-size: 1.7em; }
+    .stat-row { grid-template-columns: 1fr 1fr; }
+    .pipeline-steps { flex-direction: column; }
+    .pipeline-step { border-radius: 0 !important; }
+    .pipeline-step::after { display: none; }
+    .coco-grid { grid-template-columns: 1fr; }
+    .hm-grid { grid-template-columns: 90px repeat(5, 45px) 45px; font-size: 10px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>From Graphs to <strong>Guidance</strong></h1>
+  <p class="subtitle">
+    We connected 3,200 patients with GPU-powered graph analytics, found the hidden communities in their genomic data,
+    and turned those connections into 1,977 actionable alerts a pharmacist can use today &mdash; all with plain SQL.
+  </p>
+  <div class="badges">
+    <span class="badge">Cortex Code (CoCo)</span>
+    <span class="badge">Snowflake</span>
+    <span class="badge">cuGraph on SPCS</span>
+    <span class="badge">Precision Medicine</span>
+    <span class="badge">Pharmacogenomics</span>
+    <span class="badge">Graph-to-Value</span>
+  </div>
+</div>
+
+<div class="container">
+
+<!-- === THE PROBLEM IN PLAIN ENGLISH === -->
+<section>
+  <h2><span class="icon">&#128161;</span> The Problem in Plain English</h2>
+
+  <p>Imagine 3,200 patients, each with genetic data that affects how their body processes common medications like blood thinners, antidepressants, and heart drugs. Some patients metabolize these drugs too fast (the drug doesn't work), some too slow (the drug builds up to toxic levels). The pattern isn't random &mdash; patients naturally cluster into <strong>communities</strong> with shared genetic profiles.</p>
+
+  <p>The question is simple: <strong>who needs a different prescription, and how urgently?</strong></p>
+
+  <p>The challenge is that finding those communities requires analyzing <strong>3.2 million connections</strong> between patients &mdash; something a human can't do by hand, and something a traditional database wasn't designed for.</p>
+
+  <div class="callout gold">
+    <strong>The key insight:</strong> An ontology stack builder builds a map. What we needed was a GPS. Not "here are 100 views describing relationships" &mdash; but "here's the patient who needs attention right now, here's why, and here's what to do about it."
+  </div>
+</section>
+
+<!-- === THREE QUESTIONS === -->
+<section>
+  <h2><span class="icon">&#127919;</span> Three Questions That Matter</h2>
+
+  <p>We stripped away complexity and asked three questions that a clinician actually cares about:</p>
+
+  <div class="pillar-grid">
+    <div class="pillar" style="border-top-color: var(--sf-accent);">
+      <div class="icon">&#128101;</div>
+      <h4>"Who else is like this patient?"</h4>
+      <p>Find patients with similar genetic profiles using cosine similarity across 12 pharmacogenomic variants and 6 key genes</p>
+    </div>
+    <div class="pillar" style="border-top-color: var(--orange);">
+      <div class="icon">&#127760;</div>
+      <h4>"What's the risk profile of this group?"</h4>
+      <p>Identify natural communities using Louvain clustering &mdash; 19 communities emerged with distinct risk patterns</p>
+    </div>
+    <div class="pillar" style="border-top-color: var(--red);">
+      <div class="icon">&#9888;</div>
+      <h4>"What should we do differently?"</h4>
+      <p>Generate specific, actionable alerts: "This patient is a Poor Metabolizer on clopidogrel &mdash; switch to prasugrel"</p>
+    </div>
+  </div>
+</section>
+
+<!-- === HOW IT WORKS === -->
+<section>
+  <h2><span class="icon">&#9878;</span> How It Works: Forge, Not Furnace</h2>
+
+  <p>Here's the breakthrough idea: you don't need a GPU running 24/7 to get the value of graph analytics. You use the GPU like a <strong>forge</strong> &mdash; fire it up, shape the metal, let it cool, then work with the finished product using your normal tools.</p>
+
+  <div class="pipeline-steps">
+    <div class="pipeline-step">
+      <div class="step-icon">&#128296;</div>
+      <div class="step-title">Fire Up the Forge</div>
+      <div class="step-desc">GPU compute pool on SPCS</div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-icon">&#129504;</div>
+      <div class="step-title">Run cuGraph</div>
+      <div class="step-desc">Similarity + Louvain clustering</div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-icon">&#128451;</div>
+      <div class="step-title">Materialize Results</div>
+      <div class="step-desc">Write to Snowflake tables</div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-icon">&#10060;</div>
+      <div class="step-title">Shut Down GPU</div>
+      <div class="step-desc">$0/hr when suspended</div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-icon">&#9889;</div>
+      <div class="step-title">Query with SQL</div>
+      <div class="step-desc">Fast, cheap, forever</div>
+    </div>
+  </div>
+
+  <div class="callout green">
+    <strong>Why this matters:</strong> The GPU does the heavy lifting once &mdash; computing 3.2M similarity edges and finding 19 natural communities. After that, a standard SQL warehouse can answer any question instantly. No ongoing GPU costs. The graph intelligence lives in regular tables that any analyst, dashboard, or agent can query.
+  </div>
+
+  <div class="stat-row">
+    <div class="stat-box"><div class="number blue">3.2M</div><div class="label">Similarity Edges<br>(cosine &gt; 0.5)</div></div>
+    <div class="stat-box"><div class="number purple">19</div><div class="label">Genomic Communities<br>(Louvain clusters)</div></div>
+    <div class="stat-box"><div class="number green">3,202</div><div class="label">Patients Mapped<br>to Communities</div></div>
+    <div class="stat-box"><div class="number red">1,977</div><div class="label">Pharmacogenomic<br>Risk Alerts</div></div>
+  </div>
+</section>
+
+<!-- === WHAT WE BUILT - THE APP === -->
+<section>
+  <h2><span class="icon">&#128202;</span> What the Clinician Sees</h2>
+
+  <p>All of this graph science collapses into something a pharmacist or physician can use in under 30 seconds. Open the app, see who needs attention, act.</p>
+
+  <!-- HEATMAP VIEW MOCKUP -->
+  <div class="app-frame">
+    <div class="app-titlebar">
+      <div class="app-dot r"></div><div class="app-dot y"></div><div class="app-dot g"></div>
+      <div class="app-url">localhost:8081 &mdash; Healthcare MCP &bull; Risk Alerts</div>
+    </div>
+    <div class="app-body">
+      <div class="mock-header">
+        <div class="dot">!</div>
+        <h4>Pharmacogenomic Risk Alerts</h4>
+      </div>
+      <div class="mock-subtitle">CYP2C19 metabolizer phenotype alerts across genomic communities &mdash; Graph-to-Value output</div>
+      <div class="mock-forge">FORGE PATTERN: Precomputed &rarr; Materialized &rarr; Query with SQL</div>
+
+      <div class="mock-summary-row">
+        <div class="mock-summary-card high"><div class="val high">214</div><div class="lbl">HIGH</div></div>
+        <div class="mock-summary-card mod"><div class="val mod">1,138</div><div class="lbl">MODERATE</div></div>
+        <div class="mock-summary-card std"><div class="val std">625</div><div class="lbl">STANDARD</div></div>
+      </div>
+
+      <div class="mock-stats">
+        <div class="mock-stat"><div class="v">1,977</div><div class="l">Total Alerts</div></div>
+        <div class="mock-stat-div"></div>
+        <div class="mock-stat"><div class="v">4</div><div class="l">Phenotypes</div></div>
+        <div class="mock-stat-div"></div>
+        <div class="mock-stat"><div class="v">19</div><div class="l">Communities</div></div>
+      </div>
+
+      <div class="mock-toggle">
+        <div class="mock-toggle-btn inactive">&#9776; Alert List</div>
+        <div class="mock-toggle-btn active">&#9638; Risk Heatmap</div>
+      </div>
+
+      <div class="mock-heatmap">
+        <div class="mock-hm-title">&#9638; Phenotype &times; Ancestry Risk Matrix</div>
+        <div class="hm-grid">
+          <div class="hm-cell"></div>
+          <div class="hm-cell hm-header"><span class="anc-dot" style="background:#4A90D9"></span>EUR</div>
+          <div class="hm-cell hm-header"><span class="anc-dot" style="background:#E67E22"></span>AFR</div>
+          <div class="hm-cell hm-header"><span class="anc-dot" style="background:#27AE60"></span>EAS</div>
+          <div class="hm-cell hm-header"><span class="anc-dot" style="background:#8E44AD"></span>SAS</div>
+          <div class="hm-cell hm-header"><span class="anc-dot" style="background:#E74C3C"></span>AMR</div>
+          <div class="hm-cell hm-header">Total</div>
+
+          <div class="hm-cell hm-label"><span class="hm-badge" style="background:#DC262620;color:#DC2626">PM</span> Poor</div>
+          <div class="hm-cell hm-hot">89</div>
+          <div class="hm-cell hm-hot">71</div>
+          <div class="hm-cell hm-warm">42</div>
+          <div class="hm-cell hm-cool">8</div>
+          <div class="hm-cell hm-cool">4</div>
+          <div class="hm-cell hm-total">214</div>
+
+          <div class="hm-cell hm-label"><span class="hm-badge" style="background:#D9770620;color:#D97706">IM</span> Intermed.</div>
+          <div class="hm-cell hm-hot">198</div>
+          <div class="hm-cell hm-hot">167</div>
+          <div class="hm-cell hm-hot">143</div>
+          <div class="hm-cell hm-warm">52</div>
+          <div class="hm-cell hm-mild">31</div>
+          <div class="hm-cell hm-total">591</div>
+
+          <div class="hm-cell hm-label"><span class="hm-badge" style="background:#7C3AED20;color:#7C3AED">UM</span> Ultra.</div>
+          <div class="hm-cell hm-warm">67</div>
+          <div class="hm-cell hm-warm">54</div>
+          <div class="hm-cell hm-mild">38</div>
+          <div class="hm-cell hm-cool">15</div>
+          <div class="hm-cell hm-cool">7</div>
+          <div class="hm-cell hm-total">181</div>
+
+          <div class="hm-cell hm-label"><span class="hm-badge" style="background:#2563EB20;color:#2563EB">RM</span> Rapid</div>
+          <div class="hm-cell hm-hot">287</div>
+          <div class="hm-cell hm-hot">241</div>
+          <div class="hm-cell hm-hot">189</div>
+          <div class="hm-cell hm-warm">53</div>
+          <div class="hm-cell hm-warm">41</div>
+          <div class="hm-cell hm-total">991</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p style="text-align:center; font-size:0.85em; color:var(--muted); font-style:italic; margin-top:-10px;">Risk Heatmap &mdash; Shows where high-risk patients concentrate by metabolizer type and ancestry</p>
+
+  <!-- ALERT LIST VIEW MOCKUP -->
+  <div class="app-frame" style="margin-top:28px;">
+    <div class="app-titlebar">
+      <div class="app-dot r"></div><div class="app-dot y"></div><div class="app-dot g"></div>
+      <div class="app-url">localhost:8081 &mdash; Healthcare MCP &bull; Risk Alerts &bull; Alert List</div>
+    </div>
+    <div class="app-body" style="min-height:auto;">
+      <div class="mock-toggle" style="margin-bottom:12px;">
+        <div class="mock-toggle-btn active">&#9776; Alert List</div>
+        <div class="mock-toggle-btn inactive">&#9638; Risk Heatmap</div>
+      </div>
+
+      <div class="mock-alert-card high">
+        <div class="mock-alert-top">
+          <span style="color:#DC2626; font-weight:bold;">&#9888;</span>
+          <span class="mock-alert-name">Sarah Chen</span>
+          <span class="mock-priority-badge" style="background:#FEF2F2;color:#DC2626;">HIGH</span>
+        </div>
+        <div class="mock-alert-meta">
+          PGX-001847
+          <span class="mock-chip" style="background:#DC262615;color:#DC2626;">PM</span>
+          <span class="mock-chip" style="background:#4A90D915;color:#4A90D9;">EUR</span>
+          C3
+        </div>
+        <div class="mock-action" style="background:#FEF2F2;color:#DC2626;">Poor Metabolizer on clopidogrel &mdash; high risk of therapeutic failure. Recommend pharmacist review for prasugrel or ticagrelor switch.</div>
+      </div>
+
+      <div class="mock-alert-card high">
+        <div class="mock-alert-top">
+          <span style="color:#DC2626; font-weight:bold;">&#9888;</span>
+          <span class="mock-alert-name">Marcus Williams</span>
+          <span class="mock-priority-badge" style="background:#FEF2F2;color:#DC2626;">HIGH</span>
+        </div>
+        <div class="mock-alert-meta">
+          PGX-002103
+          <span class="mock-chip" style="background:#DC262615;color:#DC2626;">PM</span>
+          <span class="mock-chip" style="background:#E67E2215;color:#E67E22;">AFR</span>
+          C7
+        </div>
+        <div class="mock-action" style="background:#FEF2F2;color:#DC2626;">Poor Metabolizer with 847 high-similarity neighbors in Community 7 &mdash; systemic pattern indicates population-level intervention needed.</div>
+      </div>
+
+      <div class="mock-alert-card mod">
+        <div class="mock-alert-top">
+          <span style="color:#D97706; font-weight:bold;">&#9888;</span>
+          <span class="mock-alert-name">Emily Rodriguez</span>
+          <span class="mock-priority-badge" style="background:#FFFBEB;color:#D97706;">MODERATE</span>
+        </div>
+        <div class="mock-alert-meta">
+          PGX-000912
+          <span class="mock-chip" style="background:#D9770615;color:#D97706;">IM</span>
+          <span class="mock-chip" style="background:#E74C3C15;color:#E74C3C;">AMR</span>
+          C12
+        </div>
+        <div class="mock-action" style="background:#FFFBEB;color:#D97706;">Intermediate Metabolizer &mdash; reduced drug efficacy likely. Consider dose adjustment or therapeutic drug monitoring at next visit.</div>
+      </div>
+
+      <p style="text-align:center; font-size:11px; color:#888; font-style:italic; margin-top:8px;">+ 1,974 more alerts</p>
+    </div>
+  </div>
+
+  <p style="text-align:center; font-size:0.85em; color:var(--muted); font-style:italic; margin-top:-10px;">Alert List &mdash; Each card shows the patient, their risk level, and exactly what to do</p>
+</section>
+
+<!-- === THE JOURNEY: 5 PHASES === -->
+<section>
+  <h2><span class="icon">&#128640;</span> The Five-Phase Journey</h2>
+
+  <p>This wasn't built over months by a big team. It was built in a single afternoon by one person paired with Cortex Code (CoCo) &mdash; Snowflake's AI coding assistant &mdash; following five clear phases:</p>
+
+  <div class="two-col">
+    <div class="card" style="border-top: 4px solid var(--sf-accent);">
+      <h3 style="margin-top:0;">Phase 1: Materialize the Graph</h3>
+      <p style="font-size:0.9em;">Ran NVIDIA cuGraph on a GPU to compute patient-to-patient similarity (3.2M edges) and community detection (Louvain clustering &rarr; 19 communities, 3,202 patients). Wrote results to permanent Snowflake tables. Shut down the GPU.</p>
+    </div>
+    <div class="card" style="border-top: 4px solid var(--red);">
+      <h3 style="margin-top:0;">Phase 2: Create Risk Alerts</h3>
+      <p style="font-size:0.9em;">Built a SQL view that joins communities, membership, and clinical data to produce 1,977 pharmacogenomic alerts with priority levels (214 HIGH, 1,138 MODERATE, 625 STANDARD) and specific recommended actions.</p>
+    </div>
+    <div class="card" style="border-top: 4px solid var(--purple);">
+      <h3 style="margin-top:0;">Phase 3: Teach the AI Agent</h3>
+      <p style="font-size:0.9em;">Expanded the Cortex Analyst semantic view from 169 to 279 description rows, adding all graph tables. Updated the AI agent to understand community membership, similarity scores, and risk tiers.</p>
+    </div>
+    <div class="card" style="border-top: 4px solid var(--green);">
+      <h3 style="margin-top:0;">Phase 4: Make It Self-Refreshing</h3>
+      <p style="font-size:0.9em;">Converted community tables to Dynamic Tables with 1-day lag &mdash; when new patients are added, the alerts update automatically. Suspended the GPU compute pool to $0/hr.</p>
+    </div>
+  </div>
+
+  <div class="card" style="border-top: 4px solid var(--gold); margin-top: 20px;">
+    <h3 style="margin-top:0;">Phase 5: Put It in the Clinician's Hands</h3>
+    <p style="font-size:0.9em;">Added a Risk Alerts tab to the Healthcare MCP app (React Native / Expo). Summary cards, priority filters, search, a phenotype-by-ancestry heatmap, and expandable patient detail cards &mdash; all powered by direct SQL queries against the materialized graph tables. No GPU needed at query time.</p>
+  </div>
+</section>
+
+<!-- === WHAT COCO DID === -->
+<section>
+  <div class="coco-section">
+    <h2><span class="icon">&#9889;</span> Built with Cortex Code on Snowflake</h2>
+
+    <p style="margin-bottom:16px;">One person. One AI coding partner. In a single session, CoCo helped design the architecture, write the SQL, build the React components, configure dynamic tables, expand the semantic view, and deploy the UI &mdash; all without leaving the IDE.</p>
+
+    <h3>What CoCo Actually Built</h3>
+    <div class="coco-grid">
+      <div class="coco-item">
+        <div class="label">Graph Materialization</div>
+        <div class="desc">SIMILARITY_EDGES (3.2M rows), GENOMIC_COMMUNITIES (24 clusters), COMMUNITY_MEMBERSHIP (3,202 patients) &mdash; all from cuGraph output</div>
+      </div>
+      <div class="coco-item">
+        <div class="label">Pharmacogenomic Alerts View</div>
+        <div class="desc">Multi-table SQL join producing 1,977 alerts with priority tiers, phenotype classification, and specific action recommendations</div>
+      </div>
+      <div class="coco-item">
+        <div class="label">Semantic View Expansion</div>
+        <div class="desc">169 &rarr; 279 description rows, 9 tables, 12 relationships &mdash; making the AI agent graph-aware</div>
+      </div>
+      <div class="coco-item">
+        <div class="label">Dynamic Tables</div>
+        <div class="desc">Self-refreshing community tables with 1-day lag &mdash; new patients automatically get community assignment and risk alerts</div>
+      </div>
+      <div class="coco-item">
+        <div class="label">React Native UI</div>
+        <div class="desc">Full Risk Alerts tab: summary cards, priority filters, search, phenotype&times;ancestry heatmap, expandable patient details</div>
+      </div>
+      <div class="coco-item">
+        <div class="label">Infrastructure Management</div>
+        <div class="desc">GPU compute pool suspend/resume, cost optimization, DDL validation &mdash; the "Forge not Furnace" pattern in action</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- === PLAIN ENGLISH SUMMARY === -->
+<section>
+  <h2><span class="icon">&#128172;</span> In Plain English</h2>
+
+  <div class="two-col">
+    <div class="card">
+      <h3 style="margin-top:0; color: var(--red);">Before: The Problem</h3>
+      <table>
+        <tr><td>Patient genetic data sits in tables</td><td style="color:var(--red)">Unused</td></tr>
+        <tr><td>Connections between patients</td><td style="color:var(--red)">Invisible</td></tr>
+        <tr><td>Risk patterns across groups</td><td style="color:var(--red)">Unknown</td></tr>
+        <tr><td>Drug-gene interactions</td><td style="color:var(--red)">Unchecked</td></tr>
+        <tr><td>Pharmacist workload</td><td style="color:var(--red)">Reactive</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0; color: var(--green);">After: The Solution</h3>
+      <table>
+        <tr><td>3,200 patients connected</td><td style="color:var(--green)">3.2M edges</td></tr>
+        <tr><td>19 natural communities</td><td style="color:var(--green)">Discovered</td></tr>
+        <tr><td>1,977 risk alerts generated</td><td style="color:var(--green)">Prioritized</td></tr>
+        <tr><td>Each alert has a recommendation</td><td style="color:var(--green)">Actionable</td></tr>
+        <tr><td>Pharmacist sees who needs help</td><td style="color:var(--green)">Proactive</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <blockquote>
+    "The ontology stack builder builds a map. What we needed was a GPS &mdash; not 'here are 100 views describing relationships,' but 'here's the patient who needs attention right now, here's why, and here's what to do about it.'"
+    <cite>&mdash; Design philosophy behind Graph-to-Value</cite>
+  </blockquote>
+</section>
+
+<!-- === SNOWFLAKE OBJECTS === -->
+<section>
+  <h2><span class="icon">&#128451;</span> What Lives in Snowflake</h2>
+
+  <table>
+    <thead>
+      <tr><th>Object</th><th>Type</th><th>What It Does</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>SIMILARITY_EDGES</strong></td><td>Table</td><td>3.2M patient-to-patient similarity scores (cosine &gt; 0.5)</td></tr>
+      <tr><td><strong>GENOMIC_COMMUNITIES</strong></td><td>Dynamic Table</td><td>19 communities with size, density, and modularity metrics</td></tr>
+      <tr><td><strong>COMMUNITY_MEMBERSHIP</strong></td><td>Dynamic Table</td><td>3,202 patient-to-community assignments with centrality scores</td></tr>
+      <tr><td><strong>PHARMACOGENOMIC_ALERTS</strong></td><td>View</td><td>1,977 alerts joining communities + clinical data + drug interactions</td></tr>
+      <tr><td><strong>PRECISION_MEDICINE_SV_LIVE</strong></td><td>Semantic View</td><td>9 tables, 279 descriptions &mdash; the AI agent's understanding of the data</td></tr>
+      <tr><td><strong>PRECISION_MEDICINE_AGENT_LIVE</strong></td><td>Cortex Agent</td><td>Natural language interface to all graph and clinical data</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout teal">
+    <strong>The pattern is repeatable:</strong> Any domain with entity relationships &mdash; fraud rings in banking, supply chain clusters in logistics, treatment communities in oncology &mdash; can follow the same Forge pattern. GPU compute once, query with SQL forever.
+  </div>
+</section>
+
+<!-- === CTA === -->
+<section>
+  <div class="cta">
+    <h2>The Bottom Line</h2>
+    <p style="font-size: 1.1em; margin-bottom: 20px;">We took 3,200 patients' genetic data, found the hidden communities in their DNA using GPU graph analytics, and turned those connections into <strong>1,977 specific, prioritized alerts</strong> that tell a pharmacist exactly which patients need a medication change and why.</p>
+    <p style="font-size: 1.1em; margin-bottom: 20px;">The GPU ran once. The results live forever in SQL tables. The alerts update automatically when new patients arrive.</p>
+    <p style="font-size: 1.1em; margin-bottom: 20px;">One person built it in an afternoon with <strong>Cortex Code on Snowflake</strong>.</p>
+    <p style="font-size: 1.25em; font-weight: bold; color: var(--gold);">Forge, not Furnace. Graph to Value. Data to Action.</p>
+  </div>
+</section>
+
+</div>
+
+<div class="footer">
+  <p><strong>Graph-to-Value &mdash; Pharmacogenomic Risk Alerts from cuGraph Community Detection</strong></p>
+  <p style="margin-top:6px;">
+    Built with <a href="https://docs.snowflake.com/en/user-guide/cortex-code/cortex-code">Cortex Code</a> on
+    <a href="https://www.snowflake.com">Snowflake</a> &bull;
+    NVIDIA cuGraph on SPCS &bull;
+    Dynamic Tables &bull;
+    Cortex Agent + Semantic View
+  </p>
+  <p style="margin-top:8px; opacity:0.7;">April 2026 &bull; Healthcare MCP App</p>
+</div>
+
+</body>
+</html>

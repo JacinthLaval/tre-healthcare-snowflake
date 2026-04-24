@@ -61,6 +61,8 @@ export default function VariantSimilarityScreen() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
 
+  const getActiveRole = () => Platform.OS === 'web' ? (localStorage.getItem('snowflake_active_role') || undefined) : undefined;
+
   useEffect(() => {
     const client = getMCPClient();
     if (!client) {
@@ -84,7 +86,7 @@ export default function VariantSimilarityScreen() {
         FROM HEALTHCARE_DATABASE.DEFAULT_SCHEMA.PATIENT_PGX_PROFILES
         ORDER BY PATIENT_NAME
         LIMIT 100
-      `);
+      `, 30, getActiveRole());
       setPatients(data as unknown as Patient[]);
     } catch (err) {
       console.error('Failed to load patients:', err);

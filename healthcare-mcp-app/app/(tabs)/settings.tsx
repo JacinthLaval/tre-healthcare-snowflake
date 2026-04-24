@@ -101,7 +101,11 @@ export default function SettingsScreen() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [activeSection, setActiveSection] = useState<'monitor' | 'connection'>('monitor');
+  const [activeSection, setActiveSection] = useState<'monitor' | 'connection' | 'governance'>('monitor');
+  const [activeRole, setActiveRole] = useState<string>('ACCOUNTADMIN');
+  const [roleLoading, setRoleLoading] = useState(false);
+  const [previewData, setPreviewData] = useState<Record<string, unknown>[]>([]);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [timeoutModal, setTimeoutModal] = useState<TimeoutModalState>({ visible: false, kind: 'pool', name: '', currentSecs: 0 });
   const [customTimeout, setCustomTimeout] = useState('');
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -170,8 +174,54 @@ export default function SettingsScreen() {
     setLoading(false);
   }, [fetchStatus]);
 
+  const switchRole = async (role: string) => {
+    setRoleLoading(true);
+    try {
+      const client = getMCPClient();
+      if (!client) return;
+      await client.executeSQL('SELECT CURRENT_ROLE()', 10, role);
+      setActiveRole(role);
+      if (Platform.OS === 'web') {
+        localStorage.setItem('snowflake_active_role', role);
+      }
+      await loadRolePreview(role);
+    } catch (e: any) {
+      console.error('Role switch failed:', e);
+      if (Platform.OS === 'web') {
+        alert(`Role switch failed: ${e.message}`);
+      } else {
+        Alert.alert('Error', `Role switch failed: ${e.message}`);
+      }
+    } finally {
+      setRoleLoading(false);
+    }
+  };
+
+  const loadRolePreview = async (role: string) => {
+    setPreviewLoading(true);
+    try {
+      const client = getMCPClient();
+      if (!client) return;
+      const data = await client.executeSQL(
+        `SELECT PATIENT_NAME, BIRTHDATE, CITY, STATE FROM HEALTHCARE_DATABASE.DEFAULT_SCHEMA.PATIENT_GENOME_MAPPING LIMIT 5`,
+        10,
+        role
+      );
+      setPreviewData(data || []);
+    } catch (e: any) {
+      console.warn('Preview failed:', e);
+      setPreviewData([]);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadInitial();
+    if (Platform.OS === 'web') {
+      const saved = localStorage.getItem('snowflake_active_role');
+      if (saved) setActiveRole(saved);
+    }
   }, [loadInitial]);
 
   useEffect(() => {
@@ -329,6 +379,14 @@ export default function SettingsScreen() {
         >
           <Text style={[styles.sectionTabText, activeSection === 'connection' && styles.sectionTabTextActive]}>
             Connection
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.sectionTab, activeSection === 'governance' && styles.sectionTabActive]}
+          onPress={() => { setActiveSection('governance'); if (previewData.length === 0) loadRolePreview(activeRole); }}
+        >
+          <Text style={[styles.sectionTabText, activeSection === 'governance' && styles.sectionTabTextActive]}>
+            Governance
           </Text>
         </TouchableOpacity>
       </View>
@@ -646,6 +704,108 @@ export default function SettingsScreen() {
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
             <Text style={styles.logoutText}>Disconnect</Text>
           </TouchableOpacity>
+        </>
+      )}
+
+      {activeSection === 'governance' && (
+        <>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Active Role</Text>
+            <Text style={styles.govDescription}>
+              Switch roles to demonstrate dynamic data masking. Clinical Researchers see full PHI; Data Engineers see redacted values.
+            </Text>
+            <View style={styles.roleCards}>
+              {[
+                { role: 'CLINICAL_RESEARCHER', label: 'Clinical Researcher', icon: '🩺', desc: 'Full PHI access — names, dates, locations', color: '#27AE60' },
+                { role: 'DATA_ENGINEER', label: 'Data Engineer', icon: '⚙️', desc: 'Masked PHI — redacted strings, year-only dates', color: '#E67E22' },
+              ].map(r => (
+                <TouchableOpacity
+                  key={r.role}
+                  style={[
+                    styles.roleCard,
+                    activeRole === r.role && { borderColor: r.color, backgroundColor: r.color + '10' },
+                  ]}
+                  onPress={() => switchRole(r.role)}
+                  disabled={roleLoading}
+                >
+                  <View style={styles.roleCardHeader}>
+                    <Text style={styles.roleIcon}>{r.icon}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.roleLabel, activeRole === r.role && { color: r.color }]}>{r.label}</Text>
+                      <Text style={styles.roleDesc}>{r.desc}</Text>
+                    </View>
+                    {activeRole === r.role && (
+                      <View style={[styles.activeRoleBadge, { backgroundColor: r.color }]}>
+                        <Text style={styles.activeRoleBadgeText}>ACTIVE</Text>
+                      </View>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {roleLoading && (
+              <View style={{ alignItems: 'center', paddingVertical: 12 }}>
+                <ActivityIndicator size="small" color="#29B5E8" />
+                <Text style={{ fontSize: 12, color: '#999', marginTop: 4 }}>Switching role...</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Data Preview — {activeRole.replace('_', ' ')}</Text>
+            <Text style={styles.govDescription}>
+              PATIENT_GENOME_MAPPING columns with masking policies applied:
+            </Text>
+            {previewLoading ? (
+              <ActivityIndicator size="small" color="#29B5E8" style={{ padding: 20 }} />
+            ) : previewData.length > 0 ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator>
+                <View>
+                  <View style={styles.previewHeaderRow}>
+                    <Text style={[styles.previewHeaderCell, { width: 160 }]}>PATIENT_NAME</Text>
+                    <Text style={[styles.previewHeaderCell, { width: 110 }]}>BIRTHDATE</Text>
+                    <Text style={[styles.previewHeaderCell, { width: 120 }]}>CITY</Text>
+                    <Text style={[styles.previewHeaderCell, { width: 120 }]}>STATE</Text>
+                  </View>
+                  {previewData.map((row, i) => {
+                    const isMasked = String(row.PATIENT_NAME || '').includes('REDACTED');
+                    return (
+                      <View key={i} style={[styles.previewRow, isMasked && styles.previewRowMasked]}>
+                        <Text style={[styles.previewCell, { width: 160 }, isMasked && styles.previewCellMasked]}>
+                          {String(row.PATIENT_NAME || '')}
+                        </Text>
+                        <Text style={[styles.previewCell, { width: 110 }, isMasked && styles.previewCellMasked]}>
+                          {String(row.BIRTHDATE || '')}
+                        </Text>
+                        <Text style={[styles.previewCell, { width: 120 }, isMasked && styles.previewCellMasked]}>
+                          {String(row.CITY || '')}
+                        </Text>
+                        <Text style={[styles.previewCell, { width: 120 }, isMasked && styles.previewCellMasked]}>
+                          {String(row.STATE || '')}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+            ) : (
+              <Text style={styles.emptyText}>No preview data</Text>
+            )}
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Masking Policies</Text>
+            <View style={styles.policyCard}>
+              <Text style={styles.policyName}>PII_STRING_MASK</Text>
+              <Text style={styles.policyTarget}>Applied to: PATIENT_NAME, CITY, STATE</Text>
+              <Text style={styles.policyRule}>Clinical Researcher → full value | Data Engineer → ***REDACTED***</Text>
+            </View>
+            <View style={styles.policyCard}>
+              <Text style={styles.policyName}>PII_DATE_MASK</Text>
+              <Text style={styles.policyTarget}>Applied to: BIRTHDATE</Text>
+              <Text style={styles.policyRule}>Clinical Researcher → full date | Data Engineer → year only (Jan 1)</Text>
+            </View>
+          </View>
         </>
       )}
 
@@ -1082,5 +1242,108 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#e74c3c',
     fontWeight: '600',
+  },
+  govDescription: {
+    fontSize: 13,
+    color: '#666',
+    lineHeight: 19,
+    marginBottom: 14,
+  },
+  roleCards: {
+    gap: 10,
+  },
+  roleCard: {
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    borderRadius: 12,
+    padding: 14,
+    backgroundColor: '#fafafa',
+  },
+  roleCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  roleIcon: {
+    fontSize: 28,
+  },
+  roleLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#333',
+  },
+  roleDesc: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 2,
+  },
+  activeRoleBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  activeRoleBadgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  previewHeaderRow: {
+    flexDirection: 'row',
+    backgroundColor: '#29B5E8',
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  previewHeaderCell: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
+    paddingHorizontal: 6,
+  },
+  previewRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    backgroundColor: '#fff',
+  },
+  previewRowMasked: {
+    backgroundColor: '#FFF3E0',
+  },
+  previewCell: {
+    fontSize: 12,
+    color: '#333',
+    paddingHorizontal: 6,
+  },
+  previewCellMasked: {
+    color: '#E74C3C',
+    fontWeight: '600',
+  },
+  policyCard: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#29B5E8',
+  },
+  policyName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#29B5E8',
+    marginBottom: 4,
+  },
+  policyTarget: {
+    fontSize: 12,
+    color: '#555',
+    marginBottom: 2,
+  },
+  policyRule: {
+    fontSize: 12,
+    color: '#888',
+    fontStyle: 'italic',
   },
 });

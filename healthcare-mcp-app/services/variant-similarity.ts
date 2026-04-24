@@ -1,4 +1,7 @@
 import { getMCPClient } from '@/services/mcp-client';
+import { Platform } from 'react-native';
+
+const getActiveRole = () => Platform.OS === 'web' ? (localStorage.getItem('snowflake_active_role') || undefined) : undefined;
 
 export interface PatientVector {
   sampleId: string;
@@ -86,7 +89,7 @@ async function detectBackend(): Promise<'cugraph' | 'sql'> {
     const client = getMCPClient();
     if (!client) throw new Error('No client');
     const result = await client.executeSQL(
-      `SELECT HEALTHCARE_DATABASE.DEFAULT_SCHEMA.CUGRAPH_FIND_SIMILAR('HG03045', 1) AS RESULT`
+      `SELECT HEALTHCARE_DATABASE.DEFAULT_SCHEMA.CUGRAPH_FIND_SIMILAR('HG03045', 1) AS RESULT`, 30, getActiveRole()
     ) as any[];
     if (result && result.length > 0) {
       const val = result[0].RESULT || result[0].result;
@@ -114,7 +117,7 @@ async function cugraphFindSimilar(sampleId: string, topN: number): Promise<any> 
   const client = getMCPClient();
   if (!client) throw new Error('Not connected');
   const result = await client.executeSQL(
-    `SELECT HEALTHCARE_DATABASE.DEFAULT_SCHEMA.CUGRAPH_FIND_SIMILAR('${sampleId.replace(/'/g, "''")}', ${topN}) AS RESULT`
+    `SELECT HEALTHCARE_DATABASE.DEFAULT_SCHEMA.CUGRAPH_FIND_SIMILAR('${sampleId.replace(/'/g, "''")}', ${topN}) AS RESULT`, 30, getActiveRole()
   ) as any[];
   if (!result || result.length === 0) throw new Error('No result from cuGraph');
   const val = result[0].RESULT || result[0].result;
@@ -125,7 +128,7 @@ async function cugraphCommunityProfile(communityId: number): Promise<any> {
   const client = getMCPClient();
   if (!client) throw new Error('Not connected');
   const result = await client.executeSQL(
-    `SELECT HEALTHCARE_DATABASE.DEFAULT_SCHEMA.CUGRAPH_COMMUNITY_PROFILE(${communityId}) AS RESULT`
+    `SELECT HEALTHCARE_DATABASE.DEFAULT_SCHEMA.CUGRAPH_COMMUNITY_PROFILE(${communityId}) AS RESULT`, 30, getActiveRole()
   ) as any[];
   if (!result || result.length === 0) throw new Error('No result from cuGraph');
   const val = result[0].RESULT || result[0].result;
@@ -142,7 +145,7 @@ async function loadPgxData(): Promise<typeof cachedData> {
     SELECT p.SAMPLE_ID, p.PATIENT_NAME, p.POPULATION, p.SUPERPOPULATION,
            p.GENE, p.VARIANT_NAME, p.ALT_ALLELE_COUNT
     FROM HEALTHCARE_DATABASE.DEFAULT_SCHEMA.PATIENT_PGX_PROFILES p
-  `) as unknown as PgxRow[];
+  `, 30, getActiveRole()) as unknown as PgxRow[];
 
   const variantSet = new Set<string>();
   const patientMap = new Map<string, PatientVector>();
@@ -381,7 +384,7 @@ export async function getGraphLayout(maxEdges: number = 5000): Promise<GraphLayo
       const client = getMCPClient();
       if (!client) throw new Error('Not connected');
       const result = await client.executeSQL(
-        `SELECT HEALTHCARE_DATABASE.DEFAULT_SCHEMA.CUGRAPH_GRAPH_LAYOUT(${maxEdges}) AS RESULT`
+        `SELECT HEALTHCARE_DATABASE.DEFAULT_SCHEMA.CUGRAPH_GRAPH_LAYOUT(${maxEdges}) AS RESULT`, 30, getActiveRole()
       ) as any[];
       if (!result || result.length === 0) throw new Error('No result');
       const val = result[0].RESULT || result[0].result;

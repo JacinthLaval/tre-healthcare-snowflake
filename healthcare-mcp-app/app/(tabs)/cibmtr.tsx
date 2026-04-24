@@ -3,7 +3,7 @@ import { View, StyleSheet, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { ChatInterface } from '@/components/ChatInterface';
 import { ChatMessage, ToolCallResult } from '@/types/mcp';
-import { getMCPClient, initMCPClient } from '@/services/mcp-client';
+import { getMCPClient, initMCPClient, validateSQL } from '@/services/mcp-client';
 
 export default function CibmtrScreen() {
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -15,6 +15,9 @@ export default function CibmtrScreen() {
     },
   ]);
   const [isLoading, setIsLoading] = useState(false);
+  const [pendingSql, setPendingSql] = useState<Map<string, string>>(new Map());
+
+  const getActiveRole = () => Platform.OS === 'web' ? (localStorage.getItem('snowflake_active_role') || undefined) : undefined;
 
   useEffect(() => {
     if (!getMCPClient()) {
@@ -27,6 +30,35 @@ export default function CibmtrScreen() {
         router.replace('/');
       }
     }
+  }, []);
+
+  const handleConfirmSQL = useCallback(async (messageId: string) => {
+    const sql = pendingSql.get(messageId);
+    if (!sql) return;
+
+    setPendingSql((prev) => { const next = new Map(prev); next.delete(messageId); return next; });
+    setMessages((prev) => prev.map((m) => m.id === messageId ? { ...m, sqlPending: false } : m));
+    setIsLoading(true);
+
+    try {
+      const client = getMCPClient();
+      if (!client) throw new Error('Not connected');
+      const data = await client.executeSQL(sql, 30, getActiveRole());
+      setMessages((prev) => prev.map((m) => m.id === messageId ? { ...m, data } : m));
+    } catch (err) {
+      setMessages((prev) => prev.map((m) => m.id === messageId
+        ? { ...m, content: m.content + `\n\nSQL execution error: ${err instanceof Error ? err.message : 'Unknown error'}` }
+        : m));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [pendingSql]);
+
+  const handleRejectSQL = useCallback((messageId: string) => {
+    setPendingSql((prev) => { const next = new Map(prev); next.delete(messageId); return next; });
+    setMessages((prev) => prev.map((m) => m.id === messageId
+      ? { ...m, sqlPending: false, content: m.content + '\n\n(SQL execution was rejected by user)' }
+      : m));
   }, []);
 
   const handleSendMessage = useCallback(async (text: string) => {
@@ -47,24 +79,26 @@ export default function CibmtrScreen() {
       console.log('MCP Response:', JSON.stringify(result, null, 2));
       
       const sql = extractSql(result);
-      let data: Record<string, unknown>[] | undefined;
-      
-      // Execute the SQL if we got one
+      const msgId = (Date.now() + 1).toString();
+
+      let sqlBlocked = false;
       if (sql) {
-        try {
-          data = await client.executeSQL(sql);
-          console.log('SQL Results:', data);
-        } catch (sqlError) {
-          console.error('SQL execution error:', sqlError);
+        const validation = validateSQL(sql);
+        if (!validation.safe) {
+          sqlBlocked = true;
+        } else {
+          setPendingSql((prev) => new Map(prev).set(msgId, sql));
         }
       }
-      
+
       const assistantMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
+        id: msgId,
         role: 'assistant',
-        content: parseResponse(result),
+        content: parseResponse(result) + (sqlBlocked ? '\n\n\ud83d\udee1\ufe0f This query was blocked by the guardrail — only SELECT statements are allowed.' : ''),
         sql: sql,
-        data: data,
+        sqlPending: sql && !sqlBlocked ? true : false,
+        sqlBlocked,
+        data: undefined,
         toolName: 'cibmtr-analyst',
         timestamp: new Date(),
       };
@@ -87,6 +121,8 @@ export default function CibmtrScreen() {
       <ChatInterface
         messages={messages}
         onSendMessage={handleSendMessage}
+        onConfirmSQL={handleConfirmSQL}
+        onRejectSQL={handleRejectSQL}
         isLoading={isLoading}
         placeholder="Ask about transplant outcomes..."
       />
@@ -99,20 +135,18 @@ function parseResponse(result: ToolCallResult): string {
     for (const item of result.content) {
       if (item.type === 'text' && item.text) {
         try {
-          // The text field contains a JSON array of response objects
           const parsed = JSON.parse(item.text);
           if (Array.isArray(parsed)) {
             const textParts: string[] = [];
             for (const obj of parsed) {
               if (obj.text) textParts.push(obj.text);
               if (obj.suggestions && Array.isArray(obj.suggestions)) {
-                textParts.push('\n\nSuggested questions:\n• ' + obj.suggestions.join('\n• '));
+                textParts.push('\n\nSuggested questions:\n\u2022 ' + obj.suggestions.join('\n\u2022 '));
               }
             }
             return textParts.join('\n\n');
           }
         } catch {
-          // Not JSON, return as-is
           return item.text;
         }
       }
@@ -133,15 +167,10 @@ function extractSql(result: ToolCallResult): string | undefined {
             }
           }
         } catch {
-          // Not JSON
         }
       }
     }
   }
-  return undefined;
-}
-
-function extractData(result: ToolCallResult): Record<string, unknown>[] | undefined {
   return undefined;
 }
 

@@ -67,6 +67,16 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="risk-alerts"
+        options={{
+          title: 'Risk Alerts',
+          headerTitle: 'Risk Alerts',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="alert-circle" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="platform"
         options={{
           title: 'Platform',

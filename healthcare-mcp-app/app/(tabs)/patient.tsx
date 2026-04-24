@@ -48,6 +48,8 @@ export default function PatientScreen() {
   const [patientSearch, setPatientSearch] = useState('');
   const [isLoadingPatients, setIsLoadingPatients] = useState(true);
 
+  const getActiveRole = () => Platform.OS === 'web' ? (localStorage.getItem('snowflake_active_role') || undefined) : undefined;
+
   useEffect(() => {
     const client = getMCPClient();
     if (!client) {
@@ -83,7 +85,7 @@ export default function PatientScreen() {
           CASE WHEN SAMPLE_ID IN ('HG03163','NA19790','HG00864','HG01162','HG01597','HG00233','HG01396','NA19648') THEN 0 ELSE 1 END,
           PATIENT_NAME
         LIMIT 50
-      `);
+      `, 30, getActiveRole());
       setPatients(data as Patient[]);
     } catch (error) {
       console.error('Failed to load patients:', error);
@@ -116,7 +118,7 @@ export default function PatientScreen() {
 
       try {
         profileData = await client.executeSQL(
-          `CALL HEALTHCARE_DATABASE.DEFAULT_SCHEMA.GET_PATIENT_CLINICAL_PROFILE('${patient.SAMPLE_ID}')`
+          `CALL HEALTHCARE_DATABASE.DEFAULT_SCHEMA.GET_PATIENT_CLINICAL_PROFILE('${patient.SAMPLE_ID}')`, 30, getActiveRole()
         );
       } catch (e) {
         console.error('Clinical profile failed:', e);
@@ -125,7 +127,7 @@ export default function PatientScreen() {
       try {
         const dx = patient.DEMO_DX || 'General';
         pgxData = await client.executeSQL(
-          `CALL HEALTHCARE_DATABASE.DEFAULT_SCHEMA.SCAN_PHARMACOGENOMIC_VARIANTS('${patient.SAMPLE_ID}', '${dx}')`
+          `CALL HEALTHCARE_DATABASE.DEFAULT_SCHEMA.SCAN_PHARMACOGENOMIC_VARIANTS('${patient.SAMPLE_ID}', '${dx}')`, 30, getActiveRole()
         );
       } catch (e) {
         console.error('PGx scan failed:', e);

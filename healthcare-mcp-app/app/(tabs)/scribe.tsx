@@ -93,6 +93,8 @@ export default function ScribeScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
+  const getActiveRole = () => Platform.OS === 'web' ? (localStorage.getItem('snowflake_active_role') || undefined) : undefined;
+
   useEffect(() => {
     const client = getMCPClient();
     if (!client) {
@@ -128,7 +130,7 @@ export default function ScribeScreen() {
           CASE WHEN SAMPLE_ID IN ('HG03163','NA19790','HG00864','HG01162','HG01597','HG00233','HG01396','NA19648') THEN 0 ELSE 1 END,
           PATIENT_NAME
         LIMIT 50
-      `);
+      `, 30, getActiveRole());
       setPatients(data as Patient[]);
     } catch (error) {
       console.error('Failed to load patients:', error);
@@ -144,7 +146,7 @@ export default function ScribeScreen() {
       const client = getMCPClient();
       if (!client) return;
       const data = await client.executeSQL(
-        `SELECT GENE, VARIANT_NAME, ZYGOSITY, ALT_ALLELE_COUNT FROM HEALTHCARE_DATABASE.DEFAULT_SCHEMA.PATIENT_PGX_PROFILES WHERE SAMPLE_ID = '${escapeSQL(patient.SAMPLE_ID)}' ORDER BY GENE`
+        `SELECT GENE, VARIANT_NAME, ZYGOSITY, ALT_ALLELE_COUNT FROM HEALTHCARE_DATABASE.DEFAULT_SCHEMA.PATIENT_PGX_PROFILES WHERE SAMPLE_ID = '${escapeSQL(patient.SAMPLE_ID)}' ORDER BY GENE`, 30, getActiveRole()
       );
       setPgxVariants(data as unknown as PgxVariant[]);
     } catch (e) {
@@ -295,7 +297,7 @@ export default function ScribeScreen() {
       const fhir = escapeSQL(result.sections.fhir_summary || '{}');
       const rawNote = escapeSQL(result.raw_note || '');
       const sql = `CALL TRE_HEALTHCARE_DB.FHIR_STAGING.SAVE_ENCOUNTER_NOTE('${encId}', '${patId}', ${dur}, '${transcript}', '${soap}', '${icd10}', '${meds}', '${pgxAlerts}', PARSE_JSON('${fhir}'), '${rawNote}')`;
-      await client.executeSQL(sql, 60);
+      await client.executeSQL(sql, 60, getActiveRole());
       setSavedToEhr(true);
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : 'Failed to save');
